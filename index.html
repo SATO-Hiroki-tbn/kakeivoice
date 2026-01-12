@@ -624,7 +624,7 @@
 今日の日付: ${formatDate(TODAY)}
 
 ## 抽出する項目
-- date: 日付（YYYY/M/D形式）。「今日」「昨日」は実際の日付に変換。年が省略されていたら${CURRENT_YEAR}年
+- date: 日付（YYYY/M/D形式）。「今日」「昨日」は実際の日付に変換。年が省略されていたら${CURRENT_YEAR}年だが、入力された月が現在の月（${TODAY.getMonth() + 1}月）より大きい場合は前年（${CURRENT_YEAR - 1}年）とする
 - payer: 支払者（「ひろち」「奈津美」「敦子」のいずれか。表記ゆれや誤変換も解釈。例：大地→ひろち、広地→ひろち）
 - memo: メモ（「メモ」というキーワードがあった場合はその後の内容のみ。ない場合は店名や用途など、カテゴリ・金額以外の情報）
 - amount: 合計金額（言及されていれば）
@@ -742,7 +742,12 @@
       } else {
         const m = normalized.match(/(\d{1,2})月(\d{1,2})日?/);
         if (m) {
-          result.date = `${CURRENT_YEAR}/${parseInt(m[1])}/${parseInt(m[2])}`;
+          const month = parseInt(m[1]);
+          const day = parseInt(m[2]);
+          const currentMonth = TODAY.getMonth() + 1; // 0-indexed なので +1
+          // 入力された月が現在の月より大きい場合は前年とする
+          const year = month > currentMonth ? CURRENT_YEAR - 1 : CURRENT_YEAR;
+          result.date = `${year}/${month}/${day}`;
           normalized = normalized.replace(m[0], '');
         }
       }
