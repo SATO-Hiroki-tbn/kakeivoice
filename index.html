@@ -322,7 +322,7 @@
     <div class="example">
       <h3>💡 話し方の例</h3>
       <p><code>「12月1日 ひろち 食費1000円 日用品1500円」</code></p>
-      <p><code>「今日 奈津美 除外8% 100たす200円」</code></p>
+      <p><code>「今日 奈津美 除外8% 100たす200円 メモ スーパーで購入」</code></p>
       <p><code>「昨日 敦子 食費500円 日用品300たす400円 コンビニ」</code></p>
     </div>
   </div>
@@ -626,7 +626,7 @@
 ## 抽出する項目
 - date: 日付（YYYY/M/D形式）。「今日」「昨日」は実際の日付に変換。年が省略されていたら${CURRENT_YEAR}年
 - payer: 支払者（「ひろち」「奈津美」「敦子」のいずれか。表記ゆれや誤変換も解釈。例：大地→ひろち、広地→ひろち）
-- memo: メモ（店名や用途など、カテゴリ・金額以外の情報）
+- memo: メモ（「メモ」というキーワードがあった場合はその後の内容のみ。ない場合は店名や用途など、カテゴリ・金額以外の情報）
 - amount: 合計金額（言及されていれば）
 - categories: カテゴリ別金額のオブジェクト（計算後の合計値）
 - calcExpressions: カテゴリ別の計算式のオブジェクト（「100+200+150」のような形式。計算がない場合はnull）
@@ -803,10 +803,17 @@
         }
       }
       
-      // 残りをメモに
-      const memo = normalized.replace(/\s+/g, ' ').trim();
-      if (memo) result.memo = memo;
-      
+      // メモを抽出
+      // 「メモ」というキーワードがあればその後の内容のみをメモとする
+      const memoMatch = normalized.match(/(?:メモ|めも)\s*(.+)/i);
+      if (memoMatch) {
+        result.memo = memoMatch[1].trim();
+      } else {
+        // キーワードがない場合は残りの内容をメモに
+        const memo = normalized.replace(/\s+/g, ' ').trim();
+        if (memo) result.memo = memo;
+      }
+
       return result;
     }
     
