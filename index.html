@@ -363,8 +363,8 @@
         <div class="category-input-row">
           <input type="number" id="inputCat日用品" placeholder="0">
           <select id="taxType日用品">
-            <option value="exclusive">税抜</option>
             <option value="inclusive">税込</option>
+            <option value="exclusive">税抜</option>
           </select>
         </div>
         <div class="cat-detail" id="detail日用品"></div>
@@ -374,8 +374,8 @@
         <div class="category-input-row">
           <input type="number" id="inputCat除外8" placeholder="0">
           <select id="taxType除外8">
-            <option value="exclusive">税抜</option>
             <option value="inclusive">税込</option>
+            <option value="exclusive">税抜</option>
           </select>
         </div>
         <div class="cat-detail" id="detail除外8"></div>
@@ -385,8 +385,8 @@
         <div class="category-input-row">
           <input type="number" id="inputCat除外10" placeholder="0">
           <select id="taxType除外10">
-            <option value="exclusive">税抜</option>
             <option value="inclusive">税込</option>
+            <option value="exclusive">税抜</option>
           </select>
         </div>
         <div class="cat-detail" id="detail除外10"></div>
@@ -981,9 +981,9 @@
       });
       document.getElementById('detail食費').classList.remove('visible');
       document.getElementById('calcShokuhi').textContent = '0円';
-      // 税タイプをリセット（デフォルト: 税抜）
+      // 税タイプをリセット（デフォルト: 税込）
       ['日用品', '除外8', '除外10'].forEach(cat => {
-        document.getElementById('taxType' + cat).value = 'exclusive';
+        document.getElementById('taxType' + cat).value = 'inclusive';
       });
       // 計算式をリセット
       categoryCalcExpr = { 食費: null, 日用品: null, 外食全員: null, 外食一部: null, 除外8: null, 除外10: null };
