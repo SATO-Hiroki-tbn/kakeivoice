@@ -369,8 +369,7 @@
       <div class="form-group">
         <label>支払者</label>
         <select id="inputPayer">
-          <option value="">選択してください</option>
-          <option value="ひろち">ひろち</option>
+          <option value="ひろち" selected>ひろち</option>
           <option value="奈津美">奈津美</option>
           <option value="敦子">敦子</option>
         </select>
@@ -954,7 +953,8 @@
         const parts = data.date.split('/');
         document.getElementById('inputDate').value = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
       }
-      if (data.payer) document.getElementById('inputPayer').value = data.payer;
+      // 支払者：指定があれば変更、なければデフォルト「ひろち」
+      document.getElementById('inputPayer').value = data.payer || 'ひろち';
       if (data.memo) document.getElementById('inputMemo').value = data.memo;
       
       // 合計金額を設定
@@ -1105,7 +1105,7 @@
     
     function resetForm() {
       document.getElementById('inputDate').value = '';
-      document.getElementById('inputPayer').value = '';
+      document.getElementById('inputPayer').value = 'ひろち';
       document.getElementById('inputMemo').value = '';
       document.getElementById('inputTotal').value = '';
       // 金額カテゴリ
