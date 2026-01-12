@@ -617,18 +617,18 @@
     const aiStatus = document.getElementById('aiStatus');
     let debounceTimer = null;
 
-    // 自動改行を入れる関数
+    // 自動で読点を入れる関数
     function autoFormatText(text) {
       // キーワードのパターン（順序重要：より具体的なものを先に）
       const patterns = [
         // 支払者名
-        { regex: /([^\n])(ひろち|ヒロチ|広地|弘地|大地|奈津美|なつみ|ナツミ|夏美|菜摘|奈都美|敦子|あつこ|アツコ|厚子|淳子|篤子)/g, replacement: '$1\n$2' },
+        { regex: /([^\n、])(ひろち|ヒロチ|広地|弘地|大地|奈津美|なつみ|ナツミ|夏美|菜摘|奈都美|敦子|あつこ|アツコ|厚子|淳子|篤子)/g, replacement: '$1、$2' },
         // 合計金額
-        { regex: /([^\n])(合計金額|合計|ごうけいきんがく|ごうけい)/g, replacement: '$1\n$2' },
+        { regex: /([^\n、])(合計金額|合計|ごうけいきんがく|ごうけい)/g, replacement: '$1、$2' },
         // カテゴリ（より具体的なものを先に）
-        { regex: /([^\n])(外食全員|外食一部|外食|除外8|除外10|除外|日用品|日用|食費|食事)/g, replacement: '$1\n$2' },
+        { regex: /([^\n、])(外食全員|外食一部|外食|除外8|除外10|除外|日用品|日用|食費|食事)/g, replacement: '$1、$2' },
         // メモ
-        { regex: /([^\n])(メモ|めも)/g, replacement: '$1\n$2' }
+        { regex: /([^\n、])(メモ|めも)/g, replacement: '$1、$2' }
       ];
 
       let formatted = text;
@@ -636,8 +636,8 @@
         formatted = formatted.replace(pattern.regex, pattern.replacement);
       }
 
-      // 連続する改行を1つにまとめる
-      formatted = formatted.replace(/\n+/g, '\n');
+      // 連続する読点を1つにまとめる
+      formatted = formatted.replace(/、+/g, '、');
 
       return formatted;
     }
@@ -654,7 +654,7 @@
 
         if (formatted !== voiceInput.value) {
           voiceInput.value = formatted;
-          // カーソル位置を調整（改行が挿入された分だけずらす）
+          // カーソル位置を調整（読点が挿入された分だけずらす）
           const lengthDiff = formatted.length - originalLength;
           voiceInput.selectionStart = voiceInput.selectionEnd = cursorPos + lengthDiff;
         }
