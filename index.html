@@ -344,8 +344,8 @@
 
       <div class="example">
         <h3>💡 話し方の例</h3>
-        <p><code>「12月1日 ひろち 食費1000円 日用品1500円」</code></p>
-        <p><code>「今日 奈津美 除外8% 100たす200円 メモ スーパーで購入」</code></p>
+        <p><code>「12月1日 ひろち 合計金額3000円 食費1000円 日用品1500円」</code></p>
+        <p><code>「今日 奈津美 合計500円 除外8% 100たす200円 メモ スーパーで購入」</code></p>
         <p><code>「昨日 敦子 食費500円 日用品300たす400円 メモ コンビニ」</code></p>
       </div>
     </div>
@@ -598,6 +598,8 @@
       const patterns = [
         // 支払者名
         { regex: /([^\n])(ひろち|ヒロチ|広地|弘地|大地|奈津美|なつみ|ナツミ|夏美|菜摘|奈都美|敦子|あつこ|アツコ|厚子|淳子|篤子)/g, replacement: '$1\n$2' },
+        // 合計金額
+        { regex: /([^\n])(合計金額|合計|ごうけいきんがく|ごうけい)/g, replacement: '$1\n$2' },
         // カテゴリ（より具体的なものを先に）
         { regex: /([^\n])(外食全員|外食一部|外食|除外8|除外10|除外|日用品|日用|食費|食事)/g, replacement: '$1\n$2' },
         // メモ
@@ -697,7 +699,7 @@
 - date: 日付（YYYY/M/D形式）。「今日」「昨日」は実際の日付に変換。年が省略されていたら${CURRENT_YEAR}年だが、入力された月が現在の月（${TODAY.getMonth() + 1}月）より大きい場合は前年（${CURRENT_YEAR - 1}年）とする
 - payer: 支払者（「ひろち」「奈津美」「敦子」のいずれか。表記ゆれや誤変換も解釈。例：大地→ひろち、広地→ひろち）
 - memo: メモ（「メモ」というキーワードがある場合のみ、その後の内容を設定。キーワードがない場合はnull）
-- amount: 合計金額（言及されていれば）
+- amount: 合計金額（「合計金額」「合計」というキーワードがある場合のみ、その後の数値を設定。キーワードがない場合はnull）
 - categories: カテゴリ別金額のオブジェクト（計算後の合計値）
 - calcExpressions: カテゴリ別の計算式のオブジェクト（「100+200+150」のような形式。計算がない場合はnull）
 
@@ -797,6 +799,7 @@
         date: null,
         payer: null,
         memo: null,
+        amount: null,
         categories: { 食費: null, 日用品: null, 外食全員: null, 外食一部: null, 除外8: null, 除外10: null }
       };
       
@@ -839,7 +842,21 @@
         }
         if (result.payer) break;
       }
-      
+
+      // 合計金額
+      const totalPatterns = [
+        /(?:合計金額|合計|ごうけいきんがく|ごうけい)\s*([\d,]+)\s*円?/i,
+        /([\d,]+)\s*円?\s*(?:合計金額|合計|ごうけいきんがく|ごうけい)/i
+      ];
+      for (const pattern of totalPatterns) {
+        const totalMatch = normalized.match(pattern);
+        if (totalMatch) {
+          result.amount = parseInt(totalMatch[1].replace(/,/g, ''));
+          normalized = normalized.replace(totalMatch[0], '');
+          break;
+        }
+      }
+
       // カテゴリ+金額
       const categoryPatterns = [
         { keywords: ['外食全員', '外食 全員', '家族全員', 'がいしょくぜんいん'], value: '外食全員' },
