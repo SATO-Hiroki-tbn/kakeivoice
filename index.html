@@ -420,13 +420,17 @@
         <div class="cat-detail" id="detail除外10"></div>
       </div>
       <div class="form-group" style="margin-bottom: 8px;">
-        <label style="font-size: 12px;">外食（家族全員）</label>
-        <input type="number" id="inputCat外食全員" placeholder="0">
+        <label style="font-size: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" id="inputCat外食全員" style="width: auto; cursor: pointer;">
+          <span>外食（家族全員）</span>
+        </label>
         <div class="cat-detail" id="detail外食全員"></div>
       </div>
       <div class="form-group" style="margin-bottom: 8px;">
-        <label style="font-size: 12px;">外食（家族一部）</label>
-        <input type="number" id="inputCat外食一部" placeholder="0">
+        <label style="font-size: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
+          <input type="checkbox" id="inputCat外食一部" style="width: auto; cursor: pointer;">
+          <span>外食（家族一部）</span>
+        </label>
         <div class="cat-detail" id="detail外食一部"></div>
       </div>
     </div>
@@ -704,12 +708,12 @@
 - calcExpressions: カテゴリ別の計算式のオブジェクト（「100+200+150」のような形式。計算がない場合はnull）
 
 ## カテゴリ
-- 食費: 食料品、食材など（合計から他カテゴリを引いた残り）
-- 日用品: 日用消耗品（10%税率）
-- 外食全員: 家族全員での外食
-- 外食一部: 家族の一部での外食
-- 除外8: 8%軽減税率の除外品
-- 除外10: 10%税率の除外品
+- 食費: 食料品、食材など（合計から他カテゴリを引いた残り）※数値
+- 日用品: 日用消耗品（10%税率）※数値
+- 外食全員: 家族全員での外食※フラグ（trueまたはfalse、金額なし）
+- 外食一部: 家族の一部での外食※フラグ（trueまたはfalse、金額なし）
+- 除外8: 8%軽減税率の除外品※数値
+- 除外10: 10%税率の除外品※数値
 
 ## 金額の計算
 「100たす200」「100+200」「100プラス200」などは合計して数値にする。
@@ -725,8 +729,8 @@
   "categories": {
     "食費": null,
     "日用品": 500,
-    "外食全員": null,
-    "外食一部": null,
+    "外食全員": false,
+    "外食一部": true,
     "除外8": 450,
     "除外10": null
   },
@@ -857,10 +861,24 @@
         }
       }
 
+      // 外食フラグ（金額なし）
+      const gaisyokuPatterns = [
+        { keywords: ['外食全員', '外食 全員', '家族全員', 'がいしょくぜんいん'], value: '外食全員' },
+        { keywords: ['外食一部', '外食 一部', '家族一部', 'がいしょくいちぶ'], value: '外食一部' }
+      ];
+
+      for (const cat of gaisyokuPatterns) {
+        for (const kw of cat.keywords) {
+          if (normalized.includes(kw)) {
+            result.categories[cat.value] = true;
+            normalized = normalized.replace(new RegExp(kw, 'gi'), '');
+            break;
+          }
+        }
+      }
+
       // カテゴリ+金額
       const categoryPatterns = [
-        { keywords: ['外食全員', '外食 全員', '家族全員', 'がいしょくぜんいん'], value: '外食全員' },
-        { keywords: ['外食一部', '外食 一部', '家族一部', 'がいしょくいちぶ'], value: '外食一部' },
         { keywords: ['日用品', '日用', 'にちようひん', '日曜品'], value: '日用品' },
         { keywords: ['除外8', '除外 8', '8%', '8パーセント', 'じょがい8', '女外8'], value: '除外8' },
         { keywords: ['除外10', '除外 10', '10%', '10パーセント', 'じょがい10', '女外10'], value: '除外10' },
@@ -943,18 +961,26 @@
       if (data.amount) {
         document.getElementById('inputTotal').value = data.amount;
       } else if (data.categories) {
-        // カテゴリから合計を計算
+        // カテゴリから合計を計算（外食は金額ではないので除外）
         let total = 0;
         for (const [cat, val] of Object.entries(data.categories)) {
-          if (val) total += val;
+          if (cat !== '外食全員' && cat !== '外食一部' && val && typeof val === 'number') {
+            total += val;
+          }
         }
         if (total > 0) document.getElementById('inputTotal').value = total;
       }
-      
-      // 各カテゴリ（食費以外）
-      for (const cat of ['日用品', '外食全員', '外食一部', '除外8', '除外10']) {
+
+      // 金額カテゴリ
+      for (const cat of ['日用品', '除外8', '除外10']) {
         const input = document.getElementById('inputCat' + cat);
         if (input) input.value = data.categories?.[cat] || '';
+      }
+
+      // 外食チェックボックス
+      for (const cat of ['外食全員', '外食一部']) {
+        const input = document.getElementById('inputCat' + cat);
+        if (input) input.checked = data.categories?.[cat] === true;
       }
       
       updateTotals();
@@ -980,7 +1006,7 @@
       let taxExcluded = 0, taxAmount = 0, taxTotal = 0;
       
       // 各カテゴリの詳細を更新（食費以外）
-      for (const cat of ['日用品', '除外8', '除外10', '外食全員', '外食一部']) {
+      for (const cat of ['日用品', '除外8', '除外10']) {
         const amount = parseInt(document.getElementById('inputCat' + cat).value) || 0;
         const detailEl = document.getElementById('detail' + cat);
         
@@ -1030,7 +1056,19 @@
           detailEl.classList.remove('visible');
         }
       }
-      
+
+      // 外食チェックボックスの表示更新
+      for (const cat of ['外食全員', '外食一部']) {
+        const checkbox = document.getElementById('inputCat' + cat);
+        const detailEl = document.getElementById('detail' + cat);
+        if (checkbox && checkbox.checked) {
+          detailEl.innerHTML = '<div class="tax-info">✓ チェック済み</div>';
+          detailEl.classList.add('visible');
+        } else {
+          detailEl.classList.remove('visible');
+        }
+      }
+
       // 食費 = 合計 - その他カテゴリ
       const shokuhi = Math.max(0, total - otherCatsTotal);
       document.getElementById('calcShokuhi').textContent = shokuhi.toLocaleString() + '円';
@@ -1070,8 +1108,14 @@
       document.getElementById('inputPayer').value = '';
       document.getElementById('inputMemo').value = '';
       document.getElementById('inputTotal').value = '';
-      ['日用品', '外食全員', '外食一部', '除外8', '除外10'].forEach(cat => {
+      // 金額カテゴリ
+      ['日用品', '除外8', '除外10'].forEach(cat => {
         document.getElementById('inputCat' + cat).value = '';
+        document.getElementById('detail' + cat).classList.remove('visible');
+      });
+      // 外食チェックボックス
+      ['外食全員', '外食一部'].forEach(cat => {
+        document.getElementById('inputCat' + cat).checked = false;
         document.getElementById('detail' + cat).classList.remove('visible');
       });
       document.getElementById('detail食費').classList.remove('visible');
@@ -1104,14 +1148,15 @@
       const taxRates = { 日用品: 0.10, 除外8: 0.08, 除外10: 0.10 };
       const categories = {};
       let otherCatsTotal = 0;
-      
-      for (const cat of ['日用品', '外食全員', '外食一部', '除外8', '除外10']) {
+
+      // 金額カテゴリ
+      for (const cat of ['日用品', '除外8', '除外10']) {
         const val = parseInt(document.getElementById('inputCat' + cat).value) || null;
-        
+
         if (val && taxRates[cat]) {
           const taxTypeEl = document.getElementById('taxType' + cat);
           const isExclusive = taxTypeEl && taxTypeEl.value === 'exclusive';
-          
+
           if (isExclusive) {
             const tax = Math.round(val * taxRates[cat]);
             categories[cat] = val + tax;
@@ -1121,8 +1166,14 @@
         } else {
           categories[cat] = val;
         }
-        
+
         if (categories[cat]) otherCatsTotal += categories[cat];
+      }
+
+      // 外食チェックボックス（"o"または空欄）
+      for (const cat of ['外食全員', '外食一部']) {
+        const checkbox = document.getElementById('inputCat' + cat);
+        categories[cat] = checkbox && checkbox.checked ? 'o' : null;
       }
       
       // 食費 = 合計 - その他カテゴリ
