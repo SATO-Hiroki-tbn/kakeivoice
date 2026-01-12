@@ -490,6 +490,13 @@
         <a href="https://console.anthropic.com/settings/keys" target="_blank">Anthropic Console</a> で取得（1回約0.01円）
       </p>
     </div>
+    <div class="form-group">
+      <label>スプレッドシートのシート名</label>
+      <input type="text" id="sheetName" placeholder="2025">
+      <p style="font-size: 12px; color: #666; margin-top: 4px;">
+        データを書き込むシート名を指定してください（デフォルト: 現在の年）
+      </p>
+    </div>
     <button class="submit-button" style="background:#666" id="saveSettings">設定を保存</button>
   </div>
 
@@ -497,6 +504,7 @@
     // ===== 設定管理 =====
     const GAS_URL_KEY = 'kakeibo_gas_url';
     const API_KEY_KEY = 'kakeibo_claude_api_key';
+    const SHEET_NAME_KEY = 'kakeibo_sheet_name';
     const HISTORY_KEY = 'kakeibo_history';
     
     // デフォルト値なし（ユーザーが設定画面で入力）
@@ -517,35 +525,49 @@
     function loadSettings() {
       const url = localStorage.getItem(GAS_URL_KEY);
       const apiKey = localStorage.getItem(API_KEY_KEY);
-      
+      const sheetName = localStorage.getItem(SHEET_NAME_KEY);
+
       if (url) document.getElementById('gasUrl').value = url;
       if (apiKey) document.getElementById('claudeApiKey').value = apiKey;
-      
+      if (sheetName) {
+        document.getElementById('sheetName').value = sheetName;
+      } else {
+        // デフォルト値：現在の年
+        document.getElementById('sheetName').value = CURRENT_YEAR.toString();
+      }
+
       updateApiBadge();
-      
+
       // GAS URLが設定されていない場合はセットアップ通知を表示
       if (!url) {
         document.getElementById('setupNotice').style.display = 'block';
       } else {
         document.getElementById('setupNotice').style.display = 'none';
       }
-      
+
       loadHistory();
     }
     
     function saveSettings() {
       const url = document.getElementById('gasUrl').value.trim();
       const apiKey = document.getElementById('claudeApiKey').value.trim();
-      
+      const sheetName = document.getElementById('sheetName').value.trim();
+
       if (url) localStorage.setItem(GAS_URL_KEY, url);
       if (apiKey) {
         localStorage.setItem(API_KEY_KEY, apiKey);
       } else {
         localStorage.removeItem(API_KEY_KEY);
       }
-      
+      if (sheetName) {
+        localStorage.setItem(SHEET_NAME_KEY, sheetName);
+      } else {
+        // 空欄の場合はデフォルト値（現在の年）を保存
+        localStorage.setItem(SHEET_NAME_KEY, CURRENT_YEAR.toString());
+      }
+
       updateApiBadge();
-      
+
       if (url) document.getElementById('setupNotice').style.display = 'none';
       showStatus('設定を保存しました', 'success');
     }
@@ -1178,13 +1200,17 @@
       
       // 食費 = 合計 - その他カテゴリ
       categories['食費'] = Math.max(0, total - otherCatsTotal);
-      
+
+      // シート名を取得（デフォルト: 現在の年）
+      const sheetName = localStorage.getItem(SHEET_NAME_KEY) || CURRENT_YEAR.toString();
+
       const data = {
         date: formattedDate,
         payer: document.getElementById('inputPayer').value,
         memo: document.getElementById('inputMemo').value || null,
         amount: total,
-        categories: categories
+        categories: categories,
+        sheetName: sheetName
       };
       
       const btn = document.getElementById('submitButton');

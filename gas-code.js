@@ -41,8 +41,10 @@ function doPost(e) {
 }
 
 function processData(data) {
-  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(SHEET_NAME);
-  
+  // シート名をdataから取得、なければデフォルト値を使用
+  const sheetName = data.sheetName || SHEET_NAME;
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
+
   // データを適切な列に配置（B列から開始）
   // B: 支払者, C: 日付, D: 金額計(税込)
   // E: 外食-家族全員, F: 外食-家族一部
