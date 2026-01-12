@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>家計簿 音声入力</title>
+  <style>
+    * { box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Hiragino Sans', sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 16px;
+      background: #f5f5f5;
+    }
+    
+    h1 { text-align: center; color: #333; margin-bottom: 20px; font-size: 24px; }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      margin-bottom: 16px;
+    }
+    
+    .input-section { position: relative; }
+    
+    .voice-input {
+      width: 100%;
+      padding: 16px;
+      font-size: 16px;
+      border: 2px solid #4CAF50;
+      border-radius: 8px;
+      outline: none;
+      resize: none;
+      min-height: 60px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: inherit;
+      line-height: 1.5;
+    }
+    
+    .voice-input:focus {
+      border-color: #2196F3;
+      box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+    }
+    
+    .clear-text-button {
+      margin-top: 8px;
+      padding: 8px 16px;
+      font-size: 14px;
+      background: #eee;
+      color: #666;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      display: none;
+    }
+    .clear-text-button.visible { display: inline-block; }
+    .clear-text-button:hover { background: #ddd; }
+    
+    .shortcut-hint {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: #e3f2fd;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    
+    .shortcut-hint .icon { font-size: 20px; }
+    .shortcut-hint .text { font-size: 13px; color: #1565c0; }
+    .shortcut-hint kbd {
+      background: #fff;
+      padding: 3px 6px;
+      border-radius: 4px;
+      border: 1px solid #90caf9;
+      font-weight: 600;
+      font-size: 12px;
+    }
+    
+    .example {
+      margin-top: 16px;
+      padding: 12px;
+      background: #fff3e0;
+      border-radius: 8px;
+    }
+    
+    .example h3 { margin: 0 0 8px 0; font-size: 13px; color: #e65100; }
+    .example p { margin: 6px 0; font-size: 13px; color: #666; }
+    .example code { background: #fff; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
+    
+    .ai-status {
+      margin-top: 12px;
+      padding: 10px 16px;
+      background: #f3e5f5;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 14px;
+      color: #7b1fa2;
+      display: none;
+    }
+    .ai-status.visible { display: block; }
+    
+    .ai-button {
+      margin-top: 12px;
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      background: #7c4dff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .ai-button:hover { background: #651fff; }
+    .ai-button:disabled { background: #ccc; cursor: not-allowed; }
+    
+    .form-group { margin-bottom: 12px; }
+    label { display: block; margin-bottom: 4px; font-weight: 500; color: #555; font-size: 14px; }
+    input, select {
+      width: 100%;
+      padding: 10px;
+      font-size: 16px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+    }
+    input:focus, select:focus { outline: none; border-color: #4CAF50; }
+    
+    .tax-breakdown {
+      margin-top: 16px;
+      padding: 12px;
+      background: #e8f5e9;
+      border-radius: 8px;
+      display: none;
+    }
+    .tax-breakdown.visible { display: block; }
+    .tax-breakdown h3 { margin: 0 0 10px 0; font-size: 13px; color: #2e7d32; }
+    .tax-breakdown-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+    .tax-breakdown-item { padding: 6px; background: white; border-radius: 4px; text-align: center; }
+    .tax-breakdown-item .label { font-size: 10px; color: #666; }
+    .tax-breakdown-item .value { font-size: 14px; font-weight: 600; color: #333; }
+    
+    .submit-button {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      background: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .submit-button:hover { background: #1976D2; }
+    .submit-button:disabled { background: #ccc; cursor: not-allowed; }
+    
+    .status {
+      text-align: center;
+      padding: 10px;
+      border-radius: 6px;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+    .status.success { background: #e8f5e9; color: #2e7d32; }
+    .status.error { background: #ffebee; color: #c62828; }
+    
+    .setup-notice {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+    .setup-notice h3 { margin: 0 0 6px 0; color: #856404; font-size: 14px; }
+    .setup-notice p { margin: 0; color: #856404; font-size: 13px; }
+    
+    .history { margin-top: 16px; padding-top: 12px; border-top: 1px solid #eee; }
+    .history h3 { margin: 0 0 10px 0; font-size: 13px; color: #666; }
+    .history-item {
+      padding: 8px 10px;
+      background: #f9f9f9;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .history-item .time { color: #999; font-size: 11px; }
+    
+    .cat-detail {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: #f5f5f5;
+      border-radius: 4px;
+      display: none;
+    }
+    .cat-detail.visible { display: block; }
+    .cat-detail .calc-expr { color: #1976D2; }
+    .cat-detail .tax-info { color: #388E3C; margin-top: 2px; }
+    
+    .api-badge {
+      display: inline-block;
+      padding: 2px 6px;
+      background: #e8f5e9;
+      color: #2e7d32;
+      border-radius: 4px;
+      font-size: 10px;
+      margin-left: 6px;
+    }
+    .api-badge.disabled { background: #f5f5f5; color: #999; }
+    
+    /* カテゴリグリッド */
+    .category-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    
+    .category-input-row {
+      display: flex;
+      gap: 6px;
+    }
+    
+    .category-input-row input {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    .category-input-row select {
+      width: 60px;
+      padding: 8px 4px;
+      font-size: 12px;
+    }
+    
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    
+    /* スマホ対応 */
+    @media (max-width: 480px) {
+      body { padding: 12px; }
+      
+      h1 { font-size: 20px; margin-bottom: 16px; }
+      
+      .card { padding: 12px; }
+      
+      .voice-input { padding: 12px; font-size: 16px; }
+      
+      .shortcut-hint { padding: 8px 10px; }
+      .shortcut-hint .text { font-size: 12px; }
+      
+      .example { padding: 10px; }
+      .example p { font-size: 12px; }
+      .example code { font-size: 11px; }
+      
+      .category-grid {
+        grid-template-columns: 1fr;
+      }
+      
+      .category-input-row select {
+        width: 55px;
+      }
+      
+      .tax-breakdown-grid {
+        grid-template-columns: 1fr;
+        gap: 4px;
+      }
+      
+      .tax-breakdown-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+      }
+      
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>🎙️ 家計簿 音声入力</h1>
+  
+  <div class="setup-notice" id="setupNotice">
+    <h3>⚠️ 初回セットアップが必要です</h3>
+    <p>下の設定欄にGoogle Apps Script URLとClaude API Keyを入力してください</p>
+  </div>
+  
+  <div class="card">
+    <div class="input-section">
+      <textarea 
+        class="voice-input" 
+        id="voiceInput" 
+        placeholder="ここに音声入力してください..."
+        rows="3"
+      ></textarea>
+    </div>
+    <button class="clear-text-button" id="clearButton">入力をクリア</button>
+    
+    <div class="shortcut-hint">
+      <span class="icon">🎤</span>
+      <span class="text">
+        入力欄をクリック後、<kbd>Win + H</kbd>（Windows）または <kbd>Fn Fn</kbd>（Mac）で音声入力
+      </span>
+    </div>
+    
+    <div class="ai-status" id="aiStatus">🤖 AI解析中...</div>
+    
+    <button class="ai-button" id="aiParseButton">🤖 AI補正</button>
+    
+    <div class="example">
+      <h3>💡 話し方の例</h3>
+      <p><code>「12月1日 ひろち 食費1000円 日用品1500円」</code></p>
+      <p><code>「今日 奈津美 除外8% 100たす200円」</code></p>
+      <p><code>「昨日 敦子 食費500円 日用品300たす400円 コンビニ」</code></p>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h2 style="margin-top:0">
+      入力内容の確認
+      <span class="api-badge disabled" id="apiBadge">AI補正OFF</span>
+    </h2>
+    
+    <div class="form-row">
+      <div class="form-group">
+        <label>日付</label>
+        <input type="date" id="inputDate">
+      </div>
+      <div class="form-group">
+        <label>支払者</label>
+        <select id="inputPayer">
+          <option value="">選択してください</option>
+          <option value="ひろち">ひろち</option>
+          <option value="奈津美">奈津美</option>
+          <option value="敦子">敦子</option>
+        </select>
+      </div>
+    </div>
+    
+    <div class="form-group">
+      <label>メモ</label>
+      <input type="text" id="inputMemo" placeholder="例: コンビニ、スーパー等">
+    </div>
+    
+    <hr style="margin: 16px 0; border: none; border-top: 1px solid #eee;">
+    
+    <p style="font-size: 12px; color: #666; margin-bottom: 12px;">カテゴリ別金額</p>
+    <div class="category-grid">
+      <div class="form-group" style="margin-bottom: 8px;">
+        <label style="font-size: 12px;">日用品（10%）</label>
+        <div class="category-input-row">
+          <input type="number" id="inputCat日用品" placeholder="0">
+          <select id="taxType日用品">
+            <option value="exclusive">税抜</option>
+            <option value="inclusive">税込</option>
+          </select>
+        </div>
+        <div class="cat-detail" id="detail日用品"></div>
+      </div>
+      <div class="form-group" style="margin-bottom: 8px;">
+        <label style="font-size: 12px;">除外（8%）</label>
+        <div class="category-input-row">
+          <input type="number" id="inputCat除外8" placeholder="0">
+          <select id="taxType除外8">
+            <option value="exclusive">税抜</option>
+            <option value="inclusive">税込</option>
+          </select>
+        </div>
+        <div class="cat-detail" id="detail除外8"></div>
+      </div>
+      <div class="form-group" style="margin-bottom: 8px;">
+        <label style="font-size: 12px;">除外（10%）</label>
+        <div class="category-input-row">
+          <input type="number" id="inputCat除外10" placeholder="0">
+          <select id="taxType除外10">
+            <option value="exclusive">税抜</option>
+            <option value="inclusive">税込</option>
+          </select>
+        </div>
+        <div class="cat-detail" id="detail除外10"></div>
+      </div>
+      <div class="form-group" style="margin-bottom: 8px;">
+        <label style="font-size: 12px;">外食（家族全員）</label>
+        <input type="number" id="inputCat外食全員" placeholder="0">
+        <div class="cat-detail" id="detail外食全員"></div>
+      </div>
+      <div class="form-group" style="margin-bottom: 8px;">
+        <label style="font-size: 12px;">外食（家族一部）</label>
+        <input type="number" id="inputCat外食一部" placeholder="0">
+        <div class="cat-detail" id="detail外食一部"></div>
+      </div>
+    </div>
+    
+    <div style="margin-top: 16px; padding: 16px; background: #e3f2fd; border-radius: 6px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <label style="font-size: 14px; font-weight: 600; color: #1565c0;">合計金額</label>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="number" id="inputTotal" placeholder="0" style="width: 120px; padding: 10px; font-size: 18px; font-weight: 600; text-align: right; border: 2px solid #1976D2; border-radius: 6px;">
+          <span style="font-size: 18px; font-weight: 600;">円</span>
+        </div>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 12px; background: white; border-radius: 6px;">
+        <span style="font-size: 14px; color: #666;">→ 食費（税込8%）</span>
+        <span style="font-size: 18px; font-weight: 600; color: #2e7d32;" id="calcShokuhi">0円</span>
+      </div>
+      <div class="cat-detail visible" id="detail食費" style="margin-top: 8px;"></div>
+    </div>
+
+    <div class="tax-breakdown" id="taxBreakdown">
+      <h3>📊 税計算内訳</h3>
+      <div class="tax-breakdown-grid">
+        <div class="tax-breakdown-item">
+          <div class="label">税抜</div>
+          <div class="value" id="taxExcluded">-</div>
+        </div>
+        <div class="tax-breakdown-item">
+          <div class="label">外税</div>
+          <div class="value" id="taxAmount">-</div>
+        </div>
+        <div class="tax-breakdown-item">
+          <div class="label">小計（税込）</div>
+          <div class="value" id="taxTotal">-</div>
+        </div>
+      </div>
+    </div>
+    
+    <button class="submit-button" id="submitButton" disabled>スプレッドシートに追記</button>
+    
+    <div class="status" id="status" style="display:none"></div>
+
+    <div class="history" id="historySection" style="display:none">
+      <h3>📝 直近の入力</h3>
+      <div id="historyList"></div>
+    </div>
+  </div>
+  
+  <div class="card">
+    <h2 style="margin-top:0">⚙️ 設定</h2>
+    <div class="form-group">
+      <label>Google Apps Script URL</label>
+      <input type="text" id="gasUrl" placeholder="https://script.google.com/macros/s/xxxxx/exec">
+    </div>
+    <div class="form-group">
+      <label>Claude API Key（AI補正用・任意）</label>
+      <input type="password" id="claudeApiKey" placeholder="sk-ant-api03-xxxxx">
+      <p style="font-size: 12px; color: #666; margin-top: 4px;">
+        <a href="https://console.anthropic.com/settings/keys" target="_blank">Anthropic Console</a> で取得（1回約0.01円）
+      </p>
+    </div>
+    <button class="submit-button" style="background:#666" id="saveSettings">設定を保存</button>
+  </div>
+
+  <script>
+    // ===== 設定管理 =====
+    const GAS_URL_KEY = 'kakeibo_gas_url';
+    const API_KEY_KEY = 'kakeibo_claude_api_key';
+    const HISTORY_KEY = 'kakeibo_history';
+    
+    // デフォルト値なし（ユーザーが設定画面で入力）
+    
+    const TODAY = new Date();
+    const CURRENT_YEAR = TODAY.getFullYear();
+    
+    // カテゴリ別の計算式を保持
+    let categoryCalcExpr = {
+      食費: null,
+      日用品: null,
+      外食全員: null,
+      外食一部: null,
+      除外8: null,
+      除外10: null
+    };
+    
+    function loadSettings() {
+      const url = localStorage.getItem(GAS_URL_KEY);
+      const apiKey = localStorage.getItem(API_KEY_KEY);
+      
+      if (url) document.getElementById('gasUrl').value = url;
+      if (apiKey) document.getElementById('claudeApiKey').value = apiKey;
+      
+      updateApiBadge();
+      
+      // GAS URLが設定されていない場合はセットアップ通知を表示
+      if (!url) {
+        document.getElementById('setupNotice').style.display = 'block';
+      } else {
+        document.getElementById('setupNotice').style.display = 'none';
+      }
+      
+      loadHistory();
+    }
+    
+    function saveSettings() {
+      const url = document.getElementById('gasUrl').value.trim();
+      const apiKey = document.getElementById('claudeApiKey').value.trim();
+      
+      if (url) localStorage.setItem(GAS_URL_KEY, url);
+      if (apiKey) {
+        localStorage.setItem(API_KEY_KEY, apiKey);
+      } else {
+        localStorage.removeItem(API_KEY_KEY);
+      }
+      
+      updateApiBadge();
+      
+      if (url) document.getElementById('setupNotice').style.display = 'none';
+      showStatus('設定を保存しました', 'success');
+    }
+    
+    function updateApiBadge() {
+      const apiKey = localStorage.getItem(API_KEY_KEY);
+      const badge = document.getElementById('apiBadge');
+      if (apiKey) {
+        badge.textContent = 'AI補正ON';
+        badge.classList.remove('disabled');
+      } else {
+        badge.textContent = 'AI補正OFF';
+        badge.classList.add('disabled');
+      }
+    }
+    
+    document.getElementById('saveSettings').addEventListener('click', saveSettings);
+    
+    // ===== 履歴管理 =====
+    function loadHistory() {
+      const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      if (history.length > 0) {
+        document.getElementById('historySection').style.display = 'block';
+        const list = document.getElementById('historyList');
+        list.innerHTML = history.slice(0, 5).map(item => `
+          <div class="history-item">
+            <span>${item.date} ${item.payer} ${item.amount?.toLocaleString()}円</span>
+            <span class="time">${item.time}</span>
+          </div>
+        `).join('');
+      }
+    }
+    
+    function addToHistory(data) {
+      const history = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      history.unshift({
+        ...data,
+        time: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+      });
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 10)));
+      loadHistory();
+    }
+    
+    // ===== 音声入力処理 =====
+    const voiceInput = document.getElementById('voiceInput');
+    const clearButton = document.getElementById('clearButton');
+    const aiStatus = document.getElementById('aiStatus');
+    let debounceTimer = null;
+    
+    voiceInput.addEventListener('input', () => {
+      // 自動リサイズ
+      voiceInput.style.height = 'auto';
+      voiceInput.style.height = voiceInput.scrollHeight + 'px';
+      
+      clearButton.classList.toggle('visible', voiceInput.value.length > 0);
+      
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        if (voiceInput.value.trim()) {
+          // ローカルパーサーのみ実行
+          const result = parseLocally(voiceInput.value);
+          updateFormFromParsed(result);
+        } else {
+          resetForm();
+        }
+      }, 300);
+    });
+    
+    clearButton.addEventListener('click', () => {
+      voiceInput.value = '';
+      voiceInput.style.height = 'auto';
+      clearButton.classList.remove('visible');
+      resetForm();
+      voiceInput.focus();
+    });
+    
+    // AI補正ボタン
+    document.getElementById('aiParseButton').addEventListener('click', async () => {
+      const text = voiceInput.value.trim();
+      if (!text) {
+        showStatus('音声入力してからAI補正を実行してください', 'error');
+        return;
+      }
+      
+      const apiKey = localStorage.getItem(API_KEY_KEY);
+      if (!apiKey) {
+        showStatus('Claude API Keyが設定されていません', 'error');
+        return;
+      }
+      
+      const result = await parseWithClaudeAPI(text);
+      if (result) {
+        updateFormFromParsed(result);
+        showStatus('✨ AI補正完了', 'success');
+      } else {
+        showStatus('AI補正に失敗しました', 'error');
+      }
+    });
+    
+    // ===== Claude API連携 =====
+    async function parseWithClaudeAPI(text) {
+      const apiKey = localStorage.getItem(API_KEY_KEY);
+      if (!apiKey) return null;
+      
+      const systemPrompt = `あなたは家計簿入力アシスタントです。音声入力されたテキストを解析して、構造化されたJSONを返してください。
+
+今日の日付: ${formatDate(TODAY)}
+
+## 抽出する項目
+- date: 日付（YYYY/M/D形式）。「今日」「昨日」は実際の日付に変換。年が省略されていたら${CURRENT_YEAR}年
+- payer: 支払者（「ひろち」「奈津美」「敦子」のいずれか。表記ゆれや誤変換も解釈。例：大地→ひろち、広地→ひろち）
+- memo: メモ（店名や用途など、カテゴリ・金額以外の情報）
+- amount: 合計金額（言及されていれば）
+- categories: カテゴリ別金額のオブジェクト（計算後の合計値）
+- calcExpressions: カテゴリ別の計算式のオブジェクト（「100+200+150」のような形式。計算がない場合はnull）
+
+## カテゴリ
+- 食費: 食料品、食材など（合計から他カテゴリを引いた残り）
+- 日用品: 日用消耗品（10%税率）
+- 外食全員: 家族全員での外食
+- 外食一部: 家族の一部での外食
+- 除外8: 8%軽減税率の除外品
+- 除外10: 10%税率の除外品
+
+## 金額の計算
+「100たす200」「100+200」「100プラス200」などは合計して数値にする。
+計算式がある場合は calcExpressions に「100+200」の形式で記録する。
+
+## 出力形式
+必ず以下のJSON形式のみを返してください。説明や余計なテキストは不要です：
+{
+  "date": "2025/1/12",
+  "payer": "ひろち",
+  "memo": "コンビニ",
+  "amount": 1500,
+  "categories": {
+    "食費": null,
+    "日用品": 500,
+    "外食全員": null,
+    "外食一部": null,
+    "除外8": 450,
+    "除外10": null
+  },
+  "calcExpressions": {
+    "食費": null,
+    "日用品": "200+300",
+    "外食全員": null,
+    "外食一部": null,
+    "除外8": "100+200+150",
+    "除外10": null
+  }
+}
+
+食費は合計から他カテゴリを引いて計算するため、明示的に言及されていない限りnullにしてください。
+値がない項目はnullにしてください。`;
+
+      try {
+        aiStatus.classList.add('visible');
+        
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 500,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: `音声入力: 「${text}」` }]
+          })
+        });
+        
+        aiStatus.classList.remove('visible');
+        
+        if (!response.ok) {
+          console.error('Claude API error:', response.status);
+          return null;
+        }
+        
+        const data = await response.json();
+        const content = data.content[0].text;
+        
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          // 計算式を保存
+          if (parsed.calcExpressions) {
+            categoryCalcExpr = { ...categoryCalcExpr, ...parsed.calcExpressions };
+          }
+          return parsed;
+        }
+      } catch (error) {
+        aiStatus.classList.remove('visible');
+        console.error('Claude API error:', error);
+      }
+      
+      return null;
+    }
+    
+    // parseWithClaudeAPIはそのまま使用
+    
+    // ===== ローカルパーサー（フォールバック） =====
+    function parseLocally(text) {
+      let normalized = text.replace(/\s+/g, ' ').replace(/、/g, ' ').replace(/。/g, '').trim();
+      
+      const result = {
+        date: null,
+        payer: null,
+        memo: null,
+        categories: { 食費: null, 日用品: null, 外食全員: null, 外食一部: null, 除外8: null, 除外10: null }
+      };
+      
+      // 日付
+      if (/今日|きょう/.test(normalized)) {
+        result.date = formatDate(TODAY);
+        normalized = normalized.replace(/今日|きょう/g, '');
+      } else if (/昨日|きのう/.test(normalized)) {
+        const yesterday = new Date(TODAY);
+        yesterday.setDate(yesterday.getDate() - 1);
+        result.date = formatDate(yesterday);
+        normalized = normalized.replace(/昨日|きのう/g, '');
+      } else {
+        const m = normalized.match(/(\d{1,2})月(\d{1,2})日?/);
+        if (m) {
+          result.date = `${CURRENT_YEAR}/${parseInt(m[1])}/${parseInt(m[2])}`;
+          normalized = normalized.replace(m[0], '');
+        }
+      }
+      
+      // 支払者
+      const payerPatterns = [
+        { patterns: ['ひろち', 'ヒロチ', '広地', '弘地', '大地', 'hirochi'], value: 'ひろち' },
+        { patterns: ['奈津美', 'なつみ', 'ナツミ', '夏美', '菜摘', '奈都美', 'natsumi'], value: '奈津美' },
+        { patterns: ['敦子', 'あつこ', 'アツコ', '厚子', '淳子', '篤子', 'atsuko'], value: '敦子' }
+      ];
+      
+      for (const { patterns, value } of payerPatterns) {
+        for (const p of patterns) {
+          if (normalized.includes(p)) {
+            result.payer = value;
+            normalized = normalized.replace(new RegExp(p, 'g'), '');
+            break;
+          }
+        }
+        if (result.payer) break;
+      }
+      
+      // カテゴリ+金額
+      const categoryPatterns = [
+        { keywords: ['外食全員', '外食 全員', '家族全員', 'がいしょくぜんいん'], value: '外食全員' },
+        { keywords: ['外食一部', '外食 一部', '家族一部', 'がいしょくいちぶ'], value: '外食一部' },
+        { keywords: ['日用品', '日用', 'にちようひん', '日曜品'], value: '日用品' },
+        { keywords: ['除外8', '除外 8', '8%', '8パーセント', 'じょがい8', '女外8'], value: '除外8' },
+        { keywords: ['除外10', '除外 10', '10%', '10パーセント', 'じょがい10', '女外10'], value: '除外10' },
+        { keywords: ['食費', '食事', 'しょくひ', '食日'], value: '食費' },
+      ];
+      
+      // 計算式をリセット
+      categoryCalcExpr = { 食費: null, 日用品: null, 外食全員: null, 外食一部: null, 除外8: null, 除外10: null };
+      
+      for (const cat of categoryPatterns) {
+        for (const kw of cat.keywords) {
+          const calcPattern = '([\\d,]+(?:\\s*(?:たす|タス|足す|プラス|ぷらす|\\+)\\s*[\\d,]+)*)';
+          const patterns = [
+            new RegExp(kw + '\\s*' + calcPattern + '\\s*円?', 'i'),
+            new RegExp(calcPattern + '\\s*円?\\s*' + kw, 'i')
+          ];
+          
+          for (const pattern of patterns) {
+            const match = normalized.match(pattern);
+            if (match) {
+              const rawExpr = match[1];
+              const { amount, expression } = evaluateCalcWithExpr(rawExpr);
+              if (amount > 0) {
+                result.categories[cat.value] = amount;
+                categoryCalcExpr[cat.value] = expression;
+                normalized = normalized.replace(match[0], '');
+              }
+              break;
+            }
+          }
+          if (result.categories[cat.value]) break;
+        }
+      }
+      
+      // 残りをメモに
+      const memo = normalized.replace(/\s+/g, ' ').trim();
+      if (memo) result.memo = memo;
+      
+      return result;
+    }
+    
+    function formatDate(d) {
+      return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+    }
+    
+    function evaluateCalcWithExpr(text) {
+      let expr = text.replace(/たす|タス|足す|プラス|ぷらす/g, '+').replace(/\s+/g, '').replace(/,/g, '');
+      
+      // 単一の数値の場合
+      if (/^\d+$/.test(expr)) {
+        return { amount: parseInt(expr), expression: null };
+      }
+      
+      // 計算式がある場合
+      if (/^[\d+]+$/.test(expr)) {
+        const parts = expr.split('+').filter(n => n);
+        const amount = parts.reduce((sum, n) => sum + (parseInt(n) || 0), 0);
+        return { amount, expression: parts.length > 1 ? parts.join('+') : null };
+      }
+      
+      return { amount: parseInt(expr.replace(/\D/g, '')) || 0, expression: null };
+    }
+    
+    function evaluateCalc(text) {
+      return evaluateCalcWithExpr(text).amount;
+    }
+    
+    function updateFormFromParsed(data) {
+      if (data.date) {
+        const parts = data.date.split('/');
+        document.getElementById('inputDate').value = `${parts[0]}-${parts[1].padStart(2,'0')}-${parts[2].padStart(2,'0')}`;
+      }
+      if (data.payer) document.getElementById('inputPayer').value = data.payer;
+      if (data.memo) document.getElementById('inputMemo').value = data.memo;
+      
+      // 合計金額を設定
+      if (data.amount) {
+        document.getElementById('inputTotal').value = data.amount;
+      } else if (data.categories) {
+        // カテゴリから合計を計算
+        let total = 0;
+        for (const [cat, val] of Object.entries(data.categories)) {
+          if (val) total += val;
+        }
+        if (total > 0) document.getElementById('inputTotal').value = total;
+      }
+      
+      // 各カテゴリ（食費以外）
+      for (const cat of ['日用品', '外食全員', '外食一部', '除外8', '除外10']) {
+        const input = document.getElementById('inputCat' + cat);
+        if (input) input.value = data.categories?.[cat] || '';
+      }
+      
+      updateTotals();
+      validateForm();
+    }
+    
+    // ===== フォーム同期 =====
+    const formInputs = ['inputDate', 'inputPayer', 'inputMemo', 'inputTotal', 'inputCat日用品', 'inputCat外食全員', 'inputCat外食一部', 'inputCat除外8', 'inputCat除外10', 'taxType日用品', 'taxType除外8', 'taxType除外10'];
+    formInputs.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('input', () => { updateTotals(); validateForm(); });
+        el.addEventListener('change', () => { updateTotals(); validateForm(); });
+      }
+    });
+    
+    function updateTotals() {
+      const total = parseInt(document.getElementById('inputTotal').value) || 0;
+      
+      // 税率設定
+      const taxRates = { 日用品: 0.10, 除外8: 0.08, 除外10: 0.10 };
+      let otherCatsTotal = 0;
+      let taxExcluded = 0, taxAmount = 0, taxTotal = 0;
+      
+      // 各カテゴリの詳細を更新（食費以外）
+      for (const cat of ['日用品', '除外8', '除外10', '外食全員', '外食一部']) {
+        const amount = parseInt(document.getElementById('inputCat' + cat).value) || 0;
+        const detailEl = document.getElementById('detail' + cat);
+        
+        if (amount > 0) {
+          let detailHtml = '';
+          
+          // 計算式がある場合
+          const expr = categoryCalcExpr[cat];
+          if (expr) {
+            detailHtml += `<div class="calc-expr">計算: ${expr} = ${amount.toLocaleString()}</div>`;
+          }
+          
+          // 税計算がある場合
+          if (taxRates[cat]) {
+            const rate = taxRates[cat];
+            const taxTypeEl = document.getElementById('taxType' + cat);
+            const isExclusive = taxTypeEl && taxTypeEl.value === 'exclusive';
+            
+            let ex, tax, inclusive;
+            if (isExclusive) {
+              ex = amount;
+              tax = Math.round(amount * rate);
+              inclusive = amount + tax;
+            } else {
+              inclusive = amount;
+              ex = Math.round(amount / (1 + rate));
+              tax = amount - ex;
+            }
+            
+            taxExcluded += ex;
+            taxAmount += tax;
+            taxTotal += inclusive;
+            otherCatsTotal += inclusive;
+            
+            detailHtml += `<div class="tax-info">税抜 ${ex.toLocaleString()}円 + 外税 ${tax.toLocaleString()}円 = ${inclusive.toLocaleString()}円</div>`;
+          } else {
+            otherCatsTotal += amount;
+          }
+          
+          if (detailHtml) {
+            detailEl.innerHTML = detailHtml;
+            detailEl.classList.add('visible');
+          } else {
+            detailEl.classList.remove('visible');
+          }
+        } else {
+          detailEl.classList.remove('visible');
+        }
+      }
+      
+      // 食費 = 合計 - その他カテゴリ
+      const shokuhi = Math.max(0, total - otherCatsTotal);
+      document.getElementById('calcShokuhi').textContent = shokuhi.toLocaleString() + '円';
+      
+      // 食費の内訳（8%税込として計算）
+      const detailShokuhi = document.getElementById('detail食費');
+      if (shokuhi > 0) {
+        const shokuhiEx = Math.round(shokuhi / 1.08);
+        const shokuhiTax = shokuhi - shokuhiEx;
+        detailShokuhi.innerHTML = `<div class="tax-info">税抜 ${shokuhiEx.toLocaleString()}円 + 外税 ${shokuhiTax.toLocaleString()}円</div>`;
+        detailShokuhi.classList.add('visible');
+      } else {
+        detailShokuhi.classList.remove('visible');
+      }
+      
+      const breakdown = document.getElementById('taxBreakdown');
+      if (taxTotal > 0) {
+        breakdown.classList.add('visible');
+        document.getElementById('taxExcluded').textContent = taxExcluded.toLocaleString() + '円';
+        document.getElementById('taxAmount').textContent = taxAmount.toLocaleString() + '円';
+        document.getElementById('taxTotal').textContent = taxTotal.toLocaleString() + '円';
+      } else {
+        breakdown.classList.remove('visible');
+      }
+    }
+    
+    function validateForm() {
+      const date = document.getElementById('inputDate').value;
+      const payer = document.getElementById('inputPayer').value;
+      const total = parseInt(document.getElementById('inputTotal').value) || 0;
+      
+      document.getElementById('submitButton').disabled = !(date && payer && total > 0);
+    }
+    
+    function resetForm() {
+      document.getElementById('inputDate').value = '';
+      document.getElementById('inputPayer').value = '';
+      document.getElementById('inputMemo').value = '';
+      document.getElementById('inputTotal').value = '';
+      ['日用品', '外食全員', '外食一部', '除外8', '除外10'].forEach(cat => {
+        document.getElementById('inputCat' + cat).value = '';
+        document.getElementById('detail' + cat).classList.remove('visible');
+      });
+      document.getElementById('detail食費').classList.remove('visible');
+      document.getElementById('calcShokuhi').textContent = '0円';
+      // 税タイプをリセット（デフォルト: 税抜）
+      ['日用品', '除外8', '除外10'].forEach(cat => {
+        document.getElementById('taxType' + cat).value = 'exclusive';
+      });
+      // 計算式をリセット
+      categoryCalcExpr = { 食費: null, 日用品: null, 外食全員: null, 外食一部: null, 除外8: null, 除外10: null };
+      document.getElementById('taxBreakdown').classList.remove('visible');
+      document.getElementById('submitButton').disabled = true;
+    }
+    
+    // ===== 送信 =====
+    document.getElementById('submitButton').addEventListener('click', submitData);
+    
+    async function submitData() {
+      const gasUrl = localStorage.getItem(GAS_URL_KEY);
+      if (!gasUrl) {
+        showStatus('Google Apps Script URLを設定してください', 'error');
+        return;
+      }
+      
+      const dateVal = document.getElementById('inputDate').value;
+      const d = new Date(dateVal);
+      const formattedDate = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
+      
+      const total = parseInt(document.getElementById('inputTotal').value) || 0;
+      const taxRates = { 日用品: 0.10, 除外8: 0.08, 除外10: 0.10 };
+      const categories = {};
+      let otherCatsTotal = 0;
+      
+      for (const cat of ['日用品', '外食全員', '外食一部', '除外8', '除外10']) {
+        const val = parseInt(document.getElementById('inputCat' + cat).value) || null;
+        
+        if (val && taxRates[cat]) {
+          const taxTypeEl = document.getElementById('taxType' + cat);
+          const isExclusive = taxTypeEl && taxTypeEl.value === 'exclusive';
+          
+          if (isExclusive) {
+            const tax = Math.round(val * taxRates[cat]);
+            categories[cat] = val + tax;
+          } else {
+            categories[cat] = val;
+          }
+        } else {
+          categories[cat] = val;
+        }
+        
+        if (categories[cat]) otherCatsTotal += categories[cat];
+      }
+      
+      // 食費 = 合計 - その他カテゴリ
+      categories['食費'] = Math.max(0, total - otherCatsTotal);
+      
+      const data = {
+        date: formattedDate,
+        payer: document.getElementById('inputPayer').value,
+        memo: document.getElementById('inputMemo').value || null,
+        amount: total,
+        categories: categories
+      };
+      
+      const btn = document.getElementById('submitButton');
+      btn.disabled = true;
+      btn.textContent = '送信中...';
+      
+      try {
+        // GETリクエストでデータを送信（スマホ対応）
+        const params = new URLSearchParams({
+          data: JSON.stringify(data)
+        });
+        const url = `${gasUrl}?${params.toString()}`;
+        
+        const response = await fetch(url, {
+          method: 'GET',
+          mode: 'cors',
+          redirect: 'follow'
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            showStatus('✅ スプレッドシートに追記しました！', 'success');
+            addToHistory(data);
+            
+            voiceInput.value = '';
+            voiceInput.style.height = 'auto';
+            clearButton.classList.remove('visible');
+            resetForm();
+            voiceInput.focus();
+          } else {
+            showStatus('エラー: ' + (result.error || '不明なエラー'), 'error');
+          }
+        } else {
+          throw new Error('サーバーエラー');
+        }
+      } catch (error) {
+        // フォールバック: no-corsモード（成功確認はできないがリクエストは送る）
+        try {
+          const params = new URLSearchParams({
+            data: JSON.stringify(data)
+          });
+          await fetch(`${gasUrl}?${params.toString()}`, {
+            method: 'GET',
+            mode: 'no-cors'
+          });
+          
+          showStatus('✅ 送信しました（確認不可）', 'success');
+          addToHistory(data);
+          
+          voiceInput.value = '';
+          voiceInput.style.height = 'auto';
+          clearButton.classList.remove('visible');
+          resetForm();
+          voiceInput.focus();
+        } catch (e) {
+          showStatus('エラーが発生しました: ' + error.message, 'error');
+        }
+      }
+      
+      btn.disabled = false;
+      btn.textContent = 'スプレッドシートに追記';
+    }
+    
+    function showStatus(message, type) {
+      const status = document.getElementById('status');
+      status.textContent = message;
+      status.className = 'status ' + type;
+      status.style.display = 'block';
+      setTimeout(() => { status.style.display = 'none'; }, 3000);
+    }
+    
+    // ===== 初期化 =====
+    loadSettings();
+    voiceInput.focus();
+  </script>
+</body>
+</html>
