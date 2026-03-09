@@ -140,7 +140,70 @@
     }
     .ai-button:hover { background: #651fff; }
     .ai-button:disabled { background: #ccc; cursor: not-allowed; }
-    
+
+    .image-upload-button {
+      margin-top: 8px;
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      background: #FF9800;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .image-upload-button:hover { background: #F57C00; }
+    .image-upload-button:disabled { background: #ccc; cursor: not-allowed; }
+
+    .image-preview {
+      margin-top: 12px;
+      text-align: center;
+      display: none;
+    }
+    .image-preview.visible { display: block; }
+    .image-preview img {
+      max-width: 100%;
+      max-height: 200px;
+      border-radius: 8px;
+      border: 2px solid #FF9800;
+    }
+    .image-preview .remove-image {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 6px 12px;
+      font-size: 13px;
+      background: #eee;
+      color: #666;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .image-preview .remove-image:hover { background: #ddd; }
+
+    .receipt-queue-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      background: #FF9800;
+      color: white;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+
+    .skip-receipt-button {
+      width: 100%;
+      padding: 10px;
+      font-size: 14px;
+      background: #FF9800;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    .skip-receipt-button:hover { background: #F57C00; }
+
     .form-group { margin-bottom: 12px; }
     label { display: block; margin-bottom: 4px; font-weight: 500; color: #555; font-size: 14px; }
     input, select {
@@ -353,12 +416,21 @@
     <div class="ai-status" id="aiStatus">🤖 AI解析中...</div>
 
     <button class="ai-button" id="aiParseButton">🤖 AI補正</button>
+
+    <input type="file" id="imageInput" accept="image/*" capture="environment" style="display:none">
+    <button class="image-upload-button" id="imageUploadButton">📷 画像から入力</button>
+    <div class="image-preview" id="imagePreview">
+      <img id="previewImage" src="" alt="プレビュー">
+      <br>
+      <button class="remove-image" id="removeImage">画像を削除</button>
+    </div>
   </div>
   
   <div class="card">
     <h2 style="margin-top:0">
       入力内容の確認
       <span class="api-badge disabled" id="apiBadge">AI補正OFF</span>
+      <span class="receipt-queue-badge" id="receiptQueueBadge" style="display:none"></span>
     </h2>
     
     <div class="form-row">
@@ -468,6 +540,7 @@
     </div>
     
     <button class="submit-button" id="submitButton" disabled>スプレッドシートに追記</button>
+    <button class="skip-receipt-button" id="skipReceiptButton" style="display:none">次のレシートへ ▶</button>
     
     <div class="status" id="status" style="display:none"></div>
 
@@ -512,6 +585,10 @@
     const TODAY = new Date();
     const CURRENT_YEAR = TODAY.getFullYear();
     
+    // レシートキュー（複数レシート対応）
+    let receiptQueue = [];
+    let currentReceiptIndex = 0;
+
     // カテゴリ別の計算式を保持
     let categoryCalcExpr = {
       食費: null,
@@ -814,8 +891,318 @@
       return null;
     }
     
-    // parseWithClaudeAPIはそのまま使用
-    
+    // ===== 画像入力処理 =====
+    const imageInput = document.getElementById('imageInput');
+    const imageUploadButton = document.getElementById('imageUploadButton');
+    const imagePreview = document.getElementById('imagePreview');
+
+    imageUploadButton.addEventListener('click', () => {
+      imageInput.click();
+    });
+
+    imageInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const apiKey = localStorage.getItem(API_KEY_KEY);
+      if (!apiKey) {
+        showStatus('Claude API Keyが設定されていません', 'error');
+        imageInput.value = '';
+        return;
+      }
+
+      try {
+        const { base64, mimeType } = await compressImage(file);
+        document.getElementById('previewImage').src = `data:${mimeType};base64,${base64}`;
+        imagePreview.classList.add('visible');
+
+        aiStatus.textContent = '🤖 画像解析中...';
+        aiStatus.classList.add('visible');
+        imageUploadButton.disabled = true;
+
+        const [analysisResult] = await Promise.all([
+          parseImageWithClaudeAPI(base64, mimeType),
+          uploadImageToDrive(base64, file.name)
+        ]);
+
+        aiStatus.classList.remove('visible');
+        imageUploadButton.disabled = false;
+
+        if (analysisResult && analysisResult.length > 0) {
+          receiptQueue = analysisResult;
+          currentReceiptIndex = 0;
+          loadReceiptFromQueue(0);
+          if (analysisResult.length > 1) {
+            showStatus(`✨ ${analysisResult.length}枚のレシートを検出しました`, 'success');
+          } else {
+            showStatus('✨ 画像解析完了', 'success');
+          }
+        } else {
+          showStatus('画像解析に失敗しました', 'error');
+        }
+      } catch (error) {
+        aiStatus.classList.remove('visible');
+        imageUploadButton.disabled = false;
+        console.error('Image processing error:', error);
+        showStatus('画像処理エラー: ' + error.message, 'error');
+      }
+
+      imageInput.value = '';
+    });
+
+    document.getElementById('removeImage').addEventListener('click', () => {
+      imagePreview.classList.remove('visible');
+      clearReceiptQueue();
+    });
+
+    document.getElementById('skipReceiptButton').addEventListener('click', () => {
+      if (currentReceiptIndex < receiptQueue.length - 1) {
+        resetForm();
+        loadReceiptFromQueue(currentReceiptIndex + 1);
+      }
+    });
+
+    function loadReceiptFromQueue(index) {
+      if (index >= receiptQueue.length) {
+        clearReceiptQueue();
+        return;
+      }
+      currentReceiptIndex = index;
+      const receipt = receiptQueue[index];
+      if (receipt.calcExpressions) {
+        categoryCalcExpr = { ...categoryCalcExpr, ...receipt.calcExpressions };
+      }
+      updateFormFromParsed(receipt);
+      updateQueueBadge();
+    }
+
+    function clearReceiptQueue() {
+      receiptQueue = [];
+      currentReceiptIndex = 0;
+      document.getElementById('receiptQueueBadge').style.display = 'none';
+      document.getElementById('skipReceiptButton').style.display = 'none';
+    }
+
+    function updateQueueBadge() {
+      const badge = document.getElementById('receiptQueueBadge');
+      const skipBtn = document.getElementById('skipReceiptButton');
+      if (receiptQueue.length > 1) {
+        badge.textContent = `${currentReceiptIndex + 1} / ${receiptQueue.length}`;
+        badge.style.display = 'inline-block';
+        skipBtn.style.display = currentReceiptIndex < receiptQueue.length - 1 ? 'block' : 'none';
+      } else {
+        badge.style.display = 'none';
+        skipBtn.style.display = 'none';
+      }
+    }
+
+    async function compressImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const MAX_SIZE = 1600;
+            let { width, height } = img;
+
+            if (width > MAX_SIZE || height > MAX_SIZE) {
+              if (width > height) {
+                height = Math.round(height * MAX_SIZE / width);
+                width = MAX_SIZE;
+              } else {
+                width = Math.round(width * MAX_SIZE / height);
+                height = MAX_SIZE;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            const base64 = dataUrl.split(',')[1];
+            resolve({ base64, mimeType: 'image/jpeg' });
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function parseImageWithClaudeAPI(base64, mimeType) {
+      const apiKey = localStorage.getItem(API_KEY_KEY);
+      if (!apiKey) return null;
+
+      const imageSystemPrompt = `あなたは家計簿入力アシスタントです。レシート/買い物の画像を解析して、構造化されたJSONを返してください。
+
+今日の日付: ${formatDate(TODAY)}
+
+## 解析手順
+1. 画像からレシートの日付、店名、品目、金額、合計を読み取る
+2. 日付はYYYY/M/D形式に変換。年が省略されていたら${CURRENT_YEAR}年。月が現在の月（${TODAY.getMonth() + 1}月）より大きい場合は前年（${CURRENT_YEAR - 1}年）
+3. 店名をmemoに設定
+4. payerはnull（レシートから判別不可）
+5. 合計金額をamountに設定
+6. 品目をカテゴリに分類
+
+## カテゴリ分類ルール
+- 食費: 食料品、飲料、食材（合計から他カテゴリを引いた残り）→ 必ずnull
+- 日用品: 日用消耗品、洗剤、ティッシュ、トイレットペーパー等（10%税率）※数値（税込）
+- 外食全員: 飲食店のレシートの場合true ※フラグ（trueまたはfalse）
+- 外食一部: false ※フラグ
+- 除外8: 8%税率の除外品 ※通常null
+- 除外10: 10%税率の除外品 ※通常null
+
+## ヒント
+- スーパー/コンビニのレシートでは、※や軽マークが軽減税率(8%)対象の食品
+- 10%の品目で日用消耗品に該当するものは日用品カテゴリ
+- 飲食店のレシートなら外食全員をtrueにする
+
+## 出力形式
+画像に複数のレシートが含まれている場合は、レシートごとに1つのオブジェクトを配列で返してください。
+1枚のレシートのみの場合も必ず配列で返してください。説明や余計なテキストは不要です：
+[
+  {
+    "date": "2025/1/12",
+    "payer": null,
+    "memo": "店名",
+    "amount": 1500,
+    "categories": {
+      "食費": null,
+      "日用品": 500,
+      "外食全員": false,
+      "外食一部": false,
+      "除外8": null,
+      "除外10": null
+    },
+    "calcExpressions": {
+      "食費": null,
+      "日用品": null,
+      "外食全員": null,
+      "外食一部": null,
+      "除外8": null,
+      "除外10": null
+    }
+  }
+]
+
+食費は合計から他カテゴリを引いて計算するため、必ずnullにしてください。
+値がない項目はnullにしてください。`;
+
+      try {
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true'
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1500,
+            system: imageSystemPrompt,
+            messages: [{
+              role: 'user',
+              content: [
+                {
+                  type: 'image',
+                  source: {
+                    type: 'base64',
+                    media_type: mimeType,
+                    data: base64
+                  }
+                },
+                {
+                  type: 'text',
+                  text: 'このレシート画像を解析して、家計簿データをJSON配列で返してください。複数レシートがあれば全て含めてください。'
+                }
+              ]
+            }]
+          })
+        });
+
+        if (!response.ok) {
+          console.error('Claude API error:', response.status);
+          return null;
+        }
+
+        const data = await response.json();
+        const content = data.content[0].text.trim();
+        let parsed;
+        try {
+          parsed = JSON.parse(content);
+        } catch {
+          const jsonMatch = content.match(/\[[\s\S]*\]/);
+          if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0]);
+          } else {
+            const objMatch = content.match(/\{[\s\S]*\}/);
+            if (objMatch) {
+              parsed = JSON.parse(objMatch[0]);
+            }
+          }
+        }
+        if (parsed) {
+          return Array.isArray(parsed) ? parsed : [parsed];
+        }
+      } catch (error) {
+        console.error('Claude API error:', error);
+      }
+
+      return null;
+    }
+
+    async function uploadImageToDrive(base64, originalFileName) {
+      const gasUrl = localStorage.getItem(GAS_URL_KEY);
+      if (!gasUrl) return null;
+
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+      const fileName = `receipt_${timestamp}.jpg`;
+
+      try {
+        const response = await fetch(gasUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'uploadImage',
+            imageBase64: base64,
+            mimeType: 'image/jpeg',
+            fileName
+          }),
+          mode: 'cors',
+          redirect: 'follow'
+        });
+
+        if (response.ok) {
+          return await response.json();
+        }
+      } catch (error) {
+        // フォールバック: no-corsモード
+        try {
+          await fetch(gasUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              action: 'uploadImage',
+              imageBase64: base64,
+              mimeType: 'image/jpeg',
+              fileName
+            }),
+            mode: 'no-cors'
+          });
+        } catch (e) {
+          console.error('Image upload error:', e);
+        }
+      }
+
+      return null;
+    }
+
     // ===== ローカルパーサー（フォールバック） =====
     function parseLocally(text) {
       let normalized = text.replace(/\s+/g, ' ').replace(/、/g, ' ').replace(/。/g, '').trim();
@@ -1233,14 +1620,21 @@
         if (response.ok) {
           const result = await response.json();
           if (result.success) {
-            showStatus('✅ スプレッドシートに追記しました！', 'success');
             addToHistory(data);
-            
-            voiceInput.value = '';
-            voiceInput.style.height = 'auto';
-            clearButton.classList.remove('visible');
-            resetForm();
-            voiceInput.focus();
+            if (receiptQueue.length > 1 && currentReceiptIndex < receiptQueue.length - 1) {
+              showStatus(`✅ 追記完了（${currentReceiptIndex + 1}/${receiptQueue.length}）次のレシートを表示します`, 'success');
+              resetForm();
+              loadReceiptFromQueue(currentReceiptIndex + 1);
+            } else {
+              showStatus('✅ スプレッドシートに追記しました！', 'success');
+              clearReceiptQueue();
+              voiceInput.value = '';
+              voiceInput.style.height = 'auto';
+              clearButton.classList.remove('visible');
+              resetForm();
+              imagePreview.classList.remove('visible');
+              voiceInput.focus();
+            }
           } else {
             showStatus('エラー: ' + (result.error || '不明なエラー'), 'error');
           }
@@ -1258,14 +1652,21 @@
             mode: 'no-cors'
           });
           
-          showStatus('✅ 送信しました（確認不可）', 'success');
           addToHistory(data);
-          
-          voiceInput.value = '';
-          voiceInput.style.height = 'auto';
-          clearButton.classList.remove('visible');
-          resetForm();
-          voiceInput.focus();
+          if (receiptQueue.length > 1 && currentReceiptIndex < receiptQueue.length - 1) {
+            showStatus(`✅ 送信完了（${currentReceiptIndex + 1}/${receiptQueue.length}・確認不可）`, 'success');
+            resetForm();
+            loadReceiptFromQueue(currentReceiptIndex + 1);
+          } else {
+            showStatus('✅ 送信しました（確認不可）', 'success');
+            clearReceiptQueue();
+            voiceInput.value = '';
+            voiceInput.style.height = 'auto';
+            clearButton.classList.remove('visible');
+            resetForm();
+            imagePreview.classList.remove('visible');
+            voiceInput.focus();
+          }
         } catch (e) {
           showStatus('エラーが発生しました: ' + error.message, 'error');
         }

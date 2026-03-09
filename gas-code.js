@@ -41,6 +41,14 @@ function doPost(e) {
 }
 
 function processData(data) {
+  // 画像アップロード処理
+  if (data.action === 'uploadImage') {
+    const result = uploadImageToDrive(data.imageBase64, data.mimeType, data.fileName);
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: true, ...result }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // シート名をdataから取得、なければデフォルト値を使用
   const sheetName = data.sheetName || SHEET_NAME;
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
@@ -160,6 +168,27 @@ function processData(data) {
   return ContentService
     .createTextOutput(JSON.stringify({ success: true, message: '追記しました', row: targetRow }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Google Driveに画像をアップロード
+function uploadImageToDrive(base64Data, mimeType, fileName) {
+  const FOLDER_NAME = 'kakeivoice_receipts';
+  const folders = DriveApp.getFoldersByName(FOLDER_NAME);
+  let folder;
+  if (folders.hasNext()) {
+    folder = folders.next();
+  } else {
+    folder = DriveApp.createFolder(FOLDER_NAME);
+  }
+
+  const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
+  const file = folder.createFile(blob);
+
+  return {
+    fileId: file.getId(),
+    fileUrl: file.getUrl(),
+    fileName: file.getName()
+  };
 }
 
 // テスト用関数
