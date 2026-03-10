@@ -191,8 +191,13 @@
       margin-left: 6px;
     }
 
-    .skip-receipt-button {
-      width: 100%;
+    .receipt-nav {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .receipt-nav-button {
+      flex: 1;
       padding: 10px;
       font-size: 14px;
       background: #FF9800;
@@ -200,9 +205,9 @@
       border: none;
       border-radius: 8px;
       cursor: pointer;
-      margin-top: 8px;
     }
-    .skip-receipt-button:hover { background: #F57C00; }
+    .receipt-nav-button:hover { background: #F57C00; }
+    .receipt-nav-button:disabled { background: #ccc; cursor: default; }
 
     .form-group { margin-bottom: 12px; }
     label { display: block; margin-bottom: 4px; font-weight: 500; color: #555; font-size: 14px; }
@@ -414,6 +419,16 @@
         <p><code>「今日 奈津美 合計500円 除外8% 100たす200円 メモ スーパーで購入」</code></p>
         <p><code>「昨日 敦子 食費500円 日用品300たす400円 メモ コンビニ」</code></p>
       </div>
+
+      <div class="example">
+        <h3>📷 レシート画像のマーク</h3>
+        <p>レシートの品目横にペンで記号を書くと、カテゴリを自動分類します：</p>
+        <p><code>✔︎</code> チェック → 除外（8%）</p>
+        <p><code>×</code> バツ → 除外（10%）</p>
+        <p><code>△</code> 三角 → 日用品</p>
+        <p><code>▲</code> 黒三角 → くりお</p>
+        <p style="font-size: 11px; color: #888;">※ 記号なしの品目は食費として自動計算されます</p>
+      </div>
     </div>
 
     <div class="ai-status" id="aiStatus">🤖 AI解析中...</div>
@@ -554,7 +569,10 @@
     </div>
     
     <button class="submit-button" id="submitButton" disabled>スプレッドシートに追記</button>
-    <button class="skip-receipt-button" id="skipReceiptButton" style="display:none">次のレシートへ ▶</button>
+    <div class="receipt-nav" id="receiptNav" style="display:none">
+      <button class="receipt-nav-button" id="prevReceiptButton" disabled>◀ 前のレシート</button>
+      <button class="receipt-nav-button" id="nextReceiptButton">次のレシート ▶</button>
+    </div>
     
     <div class="status" id="status" style="display:none"></div>
 
@@ -969,10 +987,17 @@
       clearReceiptQueue();
     });
 
-    document.getElementById('skipReceiptButton').addEventListener('click', () => {
+    document.getElementById('nextReceiptButton').addEventListener('click', () => {
       if (currentReceiptIndex < receiptQueue.length - 1) {
         resetForm();
         loadReceiptFromQueue(currentReceiptIndex + 1);
+      }
+    });
+
+    document.getElementById('prevReceiptButton').addEventListener('click', () => {
+      if (currentReceiptIndex > 0) {
+        resetForm();
+        loadReceiptFromQueue(currentReceiptIndex - 1);
       }
     });
 
@@ -994,24 +1019,24 @@
       receiptQueue = [];
       currentReceiptIndex = 0;
       document.getElementById('receiptQueueBadge').style.display = 'none';
-      document.getElementById('skipReceiptButton').style.display = 'none';
+      document.getElementById('receiptNav').style.display = 'none';
       document.getElementById('submitButton').textContent = 'スプレッドシートに追記';
     }
 
     function updateQueueBadge() {
       const badge = document.getElementById('receiptQueueBadge');
-      const skipBtn = document.getElementById('skipReceiptButton');
-      const submitBtn = document.getElementById('submitButton');
+      const nav = document.getElementById('receiptNav');
+      const prevBtn = document.getElementById('prevReceiptButton');
+      const nextBtn = document.getElementById('nextReceiptButton');
       if (receiptQueue.length > 1) {
         badge.textContent = `${currentReceiptIndex + 1} / ${receiptQueue.length}`;
         badge.style.display = 'inline-block';
-        skipBtn.style.display = currentReceiptIndex < receiptQueue.length - 1 ? 'block' : 'none';
-        const remainCount = receiptQueue.length - currentReceiptIndex;
-        submitBtn.textContent = `${remainCount}件まとめて追記`;
+        nav.style.display = 'flex';
+        prevBtn.disabled = currentReceiptIndex === 0;
+        nextBtn.disabled = currentReceiptIndex >= receiptQueue.length - 1;
       } else {
         badge.style.display = 'none';
-        skipBtn.style.display = 'none';
-        submitBtn.textContent = 'スプレッドシートに追記';
+        nav.style.display = 'none';
       }
     }
 
@@ -1076,14 +1101,14 @@
 
 ## カテゴリ分類ルール（手書き記号ベース）
 ユーザーがレシートに手書きで記号を書き込んでいる場合のみ、その記号でカテゴリを判定する：
-- ✓（チェックマーク）がついた品目 → 除外8（8%税率の除外品）
-- ✗（バツマーク）がついた品目 → 除外10（10%税率の除外品）
+- ✔︎（チェックマーク）がついた品目 → 除外8（8%税率の除外品）
+- ×（バツマーク）がついた品目 → 除外10（10%税率の除外品）
 - △（三角）がついた品目 → 日用品
 - ▲（黒三角）がついた品目 → くりお（犬関連の品目）
 
 ### 重要：手書き記号の認識
 手書き記号はレシートの印刷テキストとは別に、ユーザーがボールペン等で書き込んだものである。
-- ✓（チェック）と✗（バツ）は印刷記号として使われることがないため、見つかれば手書き記号と判断してよい
+- ✔︎（チェック）と×（バツ）は印刷記号として使われることがないため、見つかれば手書き記号と判断してよい
 - △と▲もレシートに印刷されることはまずないため、同様に手書き記号と判断してよい
 - レシートに印刷された○●□などの記号（商品コード横のマーク等）はカテゴリ分類に使わないこと
 - 手書き記号が1つも見当たらない場合、すべての品目は食費（デフォルト）として扱う
@@ -1093,13 +1118,13 @@
 - 日用品: △マーク品目の合計（税込）※数値
 - 外食全員: 飲食店のレシートの場合true ※フラグ（trueまたはfalse）
 - 外食一部: false ※フラグ
-- 除外8: ✓マーク品目の合計（税込）※数値
+- 除外8: ✔︎マーク品目の合計（税込）※数値
 - くりお: ▲マーク品目の合計（税込）※数値
-- 除外10: ✗マーク品目の合計（税込）※数値
+- 除外10: ×マーク品目の合計（税込）※数値
 
 ## ヒント
 - スーパー/コンビニのレシートでは、※や軽マークが軽減税率(8%)対象の食品
-- カテゴリ分類に使う記号（✓✗△▲）は手書きで品目の左側に書かれている。印刷された記号（○●□等）と混同しないこと
+- カテゴリ分類に使う記号（✔︎×△▲）は手書きで品目の左側に書かれている。印刷された記号（○●□等）と混同しないこと
 - 記号がない品目は通常の食費（カウント不要、合計から自動計算される）
 - 飲食店のレシートなら外食全員をtrueにする
 
@@ -1515,7 +1540,7 @@
         const checkbox = document.getElementById('inputCat' + cat);
         const detailEl = document.getElementById('detail' + cat);
         if (checkbox && checkbox.checked) {
-          detailEl.innerHTML = '<div class="tax-info">✓ チェック済み</div>';
+          detailEl.innerHTML = '<div class="tax-info">✔︎ チェック済み</div>';
           detailEl.classList.add('visible');
         } else {
           detailEl.classList.remove('visible');
@@ -1704,58 +1729,40 @@
       const btn = document.getElementById('submitButton');
       btn.disabled = true;
 
-      // 送信対象のデータリストを構築
-      const dataList = [];
+      // 現在フォームに表示されているレシートを1件送信
+      const data = buildDataFromForm();
+      btn.textContent = '送信中...';
 
-      // 現在フォームに表示されているレシート（ユーザーが編集した可能性あり）
-      dataList.push(buildDataFromForm());
-
-      // 残りのレシートをキューから直接構築
-      if (receiptQueue.length > 1) {
-        for (let i = currentReceiptIndex + 1; i < receiptQueue.length; i++) {
-          dataList.push(buildDataFromReceipt(receiptQueue[i]));
-        }
-      }
-
-      const totalCount = dataList.length;
-      btn.textContent = totalCount > 1 ? `送信中... (0/${totalCount})` : '送信中...';
-
-      let successCount = 0;
-      let hasError = false;
-
-      for (let i = 0; i < dataList.length; i++) {
-        if (totalCount > 1) {
-          btn.textContent = `送信中... (${i + 1}/${totalCount})`;
-        }
-        try {
-          const result = await sendSingleData(gasUrl, dataList[i]);
-          if (result.success) {
-            successCount++;
-          } else {
-            hasError = true;
-            showStatus(`エラー (${i + 1}/${totalCount}): ${result.error}`, 'error');
-            break;
-          }
-        } catch (e) {
-          hasError = true;
-          showStatus(`エラーが発生しました: ${e.message}`, 'error');
-          break;
-        }
-      }
-
-      if (!hasError) {
-        if (totalCount > 1) {
-          showStatus(`✅ ${totalCount}件のレシートをスプレッドシートに追記しました！`, 'success');
-        } else {
+      try {
+        const result = await sendSingleData(gasUrl, data);
+        if (result.success) {
           showStatus('✅ スプレッドシートに追記しました！', 'success');
+
+          // キューに次のレシートがあれば表示
+          if (receiptQueue.length > 1 && currentReceiptIndex < receiptQueue.length - 1) {
+            // 送信済みレシートをキューから削除
+            receiptQueue.splice(currentReceiptIndex, 1);
+            // インデックスは同じ位置のまま次のレシートを表示
+            if (currentReceiptIndex >= receiptQueue.length) {
+              currentReceiptIndex = receiptQueue.length - 1;
+            }
+            resetForm();
+            loadReceiptFromQueue(currentReceiptIndex);
+          } else {
+            // 最後のレシートまたはキューなし→全クリア
+            clearReceiptQueue();
+            voiceInput.value = '';
+            voiceInput.style.height = 'auto';
+            clearButton.classList.remove('visible');
+            resetForm();
+            imagePreview.classList.remove('visible');
+            voiceInput.focus();
+          }
+        } else {
+          showStatus(`エラー: ${result.error}`, 'error');
         }
-        clearReceiptQueue();
-        voiceInput.value = '';
-        voiceInput.style.height = 'auto';
-        clearButton.classList.remove('visible');
-        resetForm();
-        imagePreview.classList.remove('visible');
-        voiceInput.focus();
+      } catch (e) {
+        showStatus(`エラーが発生しました: ${e.message}`, 'error');
       }
 
       btn.disabled = false;
