@@ -12,13 +12,18 @@ const SPREADSHEET_ID = '1xGXb5XiZbM-7KxMDdjn98mBr-wwEXJxk1dNvVzKr5Jo';
 const SHEET_NAME = '2025';
 
 function doGet(e) {
-  // GETリクエストでもデータを処理（スマホ対応）
   try {
+    // サマリーデータ読み取り
+    if (e.parameter && e.parameter.action === 'readSummary') {
+      return readSummaryData();
+    }
+
+    // GETリクエストでもデータを処理（スマホ対応）
     if (e.parameter && e.parameter.data) {
       const data = JSON.parse(e.parameter.data);
       return processData(data);
     }
-    
+
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'ready', message: 'データを送信してください' }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -27,6 +32,20 @@ function doGet(e) {
       .createTextOutput(JSON.stringify({ success: false, error: error.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+// サマリーシートのデータを読み取り
+function readSummaryData() {
+  const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName('サマリー');
+  if (!sheet) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: false, error: 'サマリーシートが見つかりません' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+  const data = sheet.getDataRange().getValues();
+  return ContentService
+    .createTextOutput(JSON.stringify({ success: true, data }))
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function doPost(e) {
@@ -41,6 +60,14 @@ function doPost(e) {
 }
 
 function processData(data) {
+  // 画像アップロード処理
+  if (data.action === 'uploadImage') {
+    const result = uploadImageToDrive(data.imageBase64, data.mimeType, data.fileName);
+    return ContentService
+      .createTextOutput(JSON.stringify({ success: true, ...result }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // シート名をdataから取得、なければデフォルト値を使用
   const sheetName = data.sheetName || SHEET_NAME;
   const sheet = SpreadsheetApp.openById(SPREADSHEET_ID).getSheetByName(sheetName);
@@ -160,6 +187,27 @@ function processData(data) {
   return ContentService
     .createTextOutput(JSON.stringify({ success: true, message: '追記しました', row: targetRow }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// Google Driveに画像をアップロード
+function uploadImageToDrive(base64Data, mimeType, fileName) {
+  const FOLDER_NAME = 'kakeivoice_receipts';
+  const folders = DriveApp.getFoldersByName(FOLDER_NAME);
+  let folder;
+  if (folders.hasNext()) {
+    folder = folders.next();
+  } else {
+    folder = DriveApp.createFolder(FOLDER_NAME);
+  }
+
+  const blob = Utilities.newBlob(Utilities.base64Decode(base64Data), mimeType, fileName);
+  const file = folder.createFile(blob);
+
+  return {
+    fileId: file.getId(),
+    fileUrl: file.getUrl(),
+    fileName: file.getName()
+  };
 }
 
 // テスト用関数
