@@ -494,6 +494,17 @@
         <div class="cat-detail" id="detail除外10"></div>
       </div>
       <div class="form-group" style="margin-bottom: 8px;">
+        <label style="font-size: 12px;">くりお（8%）</label>
+        <div class="category-input-row">
+          <input type="number" id="inputCatくりお" placeholder="0">
+          <select id="taxTypeくりお">
+            <option value="inclusive">税込</option>
+            <option value="exclusive">税抜</option>
+          </select>
+        </div>
+        <div class="cat-detail" id="detailくりお"></div>
+      </div>
+      <div class="form-group" style="margin-bottom: 8px;">
         <label style="font-size: 12px; display: flex; align-items: center; gap: 8px; cursor: pointer;">
           <input type="checkbox" id="inputCat外食全員" style="width: auto; cursor: pointer;">
           <span>外食（家族全員）</span>
@@ -1068,22 +1079,34 @@
 - ○（丸）がついた品目 → 除外8（8%税率の除外品）
 - ●（黒丸）がついた品目 → 除外10（10%税率の除外品）
 - △（三角）がついた品目 → 日用品
-- ▲（黒三角）がついた品目 → くりお（犬関連の除外品、除外8または除外10に税率に応じて分類）
+- ▲（黒三角）がついた品目 → くりお（犬関連の品目）
 
 ### 重要：手書き記号と印刷記号の区別
 レシートには印刷された○や●などの記号が含まれることがある（商品コード横のマーク、ポイント対象表示など）。
-これらの印刷記号はカテゴリ分類に使ってはいけない。以下の特徴で手書きと印刷を区別すること：
-- 手書き記号：ボールペンやペンで書かれた不均一な線、レシートの印字フォントと明らかに異なる、インクの色や太さが印字と違う、品目行の余白やマージン部分に書かれていることが多い
-- 印刷記号：レシートの印字と同じフォント・色・サイズで統一的に印字されている、商品コードの一部として規則的に配置されている
-手書き記号が1つも見当たらない場合、すべての品目は食費（デフォルト）として扱い、除外や日用品には分類しない。
+印刷記号と手書き記号を以下の基準で区別すること：
+
+印刷記号の特徴（カテゴリ分類に使わない）：
+- レシート印字と同じ黒インク・同じサイズで、商品コードの直前に規則的に配置されている
+- 同じ種類の商品に一律で付いている（例：CGC商品すべてに○が付く等）
+
+手書き記号の特徴（カテゴリ分類に使う）：
+- ボールペン等で書かれ、印字より太い・色が違う・不均一な線である
+- 品目の左余白やマージン部分に、印字とは別の位置に書かれている
+- 一部の品目にだけ選択的に付けられている（全品目に一律ではない）
+
+判定の手順：
+1. まず、レシート全体を見て印刷フォーマットの一部として規則的に付いている記号パターンを特定する
+2. そのパターンに当てはまらない記号（位置がずれている、太さや色が違う、一部の品目にだけ付いている等）を手書き記号として扱う
+3. 手書き記号が1つも見当たらない場合、すべての品目は食費（デフォルト）として扱う
 
 記号がない品目のカテゴリ：
 - 食費: 食料品、飲料、食材（合計から他カテゴリを引いた残り）→ 必ずnull
 - 日用品: △マーク品目の合計（税込）※数値
 - 外食全員: 飲食店のレシートの場合true ※フラグ（trueまたはfalse）
 - 外食一部: false ※フラグ
-- 除外8: ○マーク品目 + ▲マーク品目のうち8%税率のもの の合計（税込）※数値
-- 除外10: ●マーク品目 + ▲マーク品目のうち10%税率のもの の合計（税込）※数値
+- 除外8: ○マーク品目の合計（税込）※数値
+- くりお: ▲マーク品目の合計（税込）※数値
+- 除外10: ●マーク品目の合計（税込）※数値
 
 ## ヒント
 - スーパー/コンビニのレシートでは、※や軽マークが軽減税率(8%)対象の食品
@@ -1106,6 +1129,7 @@
       "外食全員": false,
       "外食一部": false,
       "除外8": null,
+      "くりお": null,
       "除外10": null
     },
     "calcExpressions": {
@@ -1114,6 +1138,7 @@
       "外食全員": null,
       "外食一部": null,
       "除外8": null,
+      "くりお": null,
       "除外10": null
     }
   }
@@ -1318,12 +1343,13 @@
       const categoryPatterns = [
         { keywords: ['日用品', '日用', 'にちようひん', '日曜品'], value: '日用品' },
         { keywords: ['除外8', '除外 8', '8%', '8パーセント', 'じょがい8', '女外8'], value: '除外8' },
+        { keywords: ['くりお', 'クリオ', '栗尾', 'kurio'], value: 'くりお' },
         { keywords: ['除外10', '除外 10', '10%', '10パーセント', 'じょがい10', '女外10'], value: '除外10' },
         { keywords: ['食費', '食事', 'しょくひ', '食日'], value: '食費' },
       ];
       
       // 計算式をリセット
-      categoryCalcExpr = { 食費: null, 日用品: null, 外食全員: null, 外食一部: null, 除外8: null, 除外10: null };
+      categoryCalcExpr = { 食費: null, 日用品: null, 外食全員: null, 外食一部: null, 除外8: null, くりお: null, 除外10: null };
       
       for (const cat of categoryPatterns) {
         for (const kw of cat.keywords) {
@@ -1410,7 +1436,7 @@
       }
 
       // 金額カテゴリ
-      for (const cat of ['日用品', '除外8', '除外10']) {
+      for (const cat of ['日用品', '除外8', 'くりお', '除外10']) {
         const input = document.getElementById('inputCat' + cat);
         if (input) input.value = data.categories?.[cat] || '';
       }
@@ -1426,7 +1452,7 @@
     }
     
     // ===== フォーム同期 =====
-    const formInputs = ['inputDate', 'inputPayer', 'inputMemo', 'inputTotal', 'inputCat日用品', 'inputCat外食全員', 'inputCat外食一部', 'inputCat除外8', 'inputCat除外10', 'taxType日用品', 'taxType除外8', 'taxType除外10'];
+    const formInputs = ['inputDate', 'inputPayer', 'inputMemo', 'inputTotal', 'inputCat日用品', 'inputCat外食全員', 'inputCat外食一部', 'inputCat除外8', 'inputCatくりお', 'inputCat除外10', 'taxType日用品', 'taxType除外8', 'taxTypeくりお', 'taxType除外10'];
     formInputs.forEach(id => {
       const el = document.getElementById(id);
       if (el) {
@@ -1439,12 +1465,12 @@
       const total = parseInt(document.getElementById('inputTotal').value) || 0;
       
       // 税率設定
-      const taxRates = { 日用品: 0.10, 除外8: 0.08, 除外10: 0.10 };
+      const taxRates = { 日用品: 0.10, 除外8: 0.08, くりお: 0.08, 除外10: 0.10 };
       let otherCatsTotal = 0;
       let taxExcluded = 0, taxAmount = 0, taxTotal = 0;
-      
+
       // 各カテゴリの詳細を更新（食費以外）
-      for (const cat of ['日用品', '除外8', '除外10']) {
+      for (const cat of ['日用品', '除外8', 'くりお', '除外10']) {
         const amount = parseInt(document.getElementById('inputCat' + cat).value) || 0;
         const detailEl = document.getElementById('detail' + cat);
         
@@ -1563,7 +1589,7 @@
         document.getElementById('taxType' + cat).value = 'inclusive';
       });
       // 計算式をリセット
-      categoryCalcExpr = { 食費: null, 日用品: null, 外食全員: null, 外食一部: null, 除外8: null, 除外10: null };
+      categoryCalcExpr = { 食費: null, 日用品: null, 外食全員: null, 外食一部: null, 除外8: null, くりお: null, 除外10: null };
       document.getElementById('taxBreakdown').classList.remove('visible');
       document.getElementById('submitButton').disabled = true;
     }
@@ -1577,7 +1603,7 @@
       const categories = {};
       let otherCatsTotal = 0;
 
-      for (const cat of ['日用品', '除外8', '除外10']) {
+      for (const cat of ['日用品', '除外8', 'くりお', '除外10']) {
         const val = receipt.categories?.[cat] || null;
         categories[cat] = val;
         if (val) otherCatsTotal += val;
@@ -1639,11 +1665,11 @@
       const formattedDate = `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 
       const total = parseInt(document.getElementById('inputTotal').value) || 0;
-      const taxRates = { 日用品: 0.10, 除外8: 0.08, 除外10: 0.10 };
+      const taxRates = { 日用品: 0.10, 除外8: 0.08, くりお: 0.08, 除外10: 0.10 };
       const categories = {};
       let otherCatsTotal = 0;
 
-      for (const cat of ['日用品', '除外8', '除外10']) {
+      for (const cat of ['日用品', '除外8', 'くりお', '除外10']) {
         const val = parseInt(document.getElementById('inputCat' + cat).value) || null;
         if (val && taxRates[cat]) {
           const taxTypeEl = document.getElementById('taxType' + cat);
