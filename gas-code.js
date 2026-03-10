@@ -77,7 +77,7 @@ function processData(data) {
   // E: 外食-家族全員, F: 外食-家族一部
   // G: 日用品10%(税抜), H: 外税, I: ?, J: ?, K: 日用品小計
   // L: 除外8%(税抜), M: 外税, N: 除外10%(税抜), O: 外税, P: 除外小計
-  // Q: 食費(税込), R: メモ(用途)
+  // Q: 食費(税込), R: くりお(税込), S: メモ(用途)
   const row = [];
   
   // 税抜・外税を計算する関数
@@ -160,9 +160,12 @@ function processData(data) {
   
   // Q: 食費(税込)
   row[15] = categories['食費'] || '';
-  
-  // R: メモ(用途)
-  row[16] = data.memo || '';
+
+  // R: くりお(税込)
+  row[16] = categories['くりお'] || '';
+
+  // S: メモ(用途)
+  row[17] = data.memo || '';
   
   // 日付列（C列）が空の最初の行を探す（5行目以降）
   const dateColumn = sheet.getRange('C5:C').getValues();
