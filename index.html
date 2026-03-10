@@ -328,6 +328,20 @@
       padding: 8px 4px;
       font-size: 12px;
     }
+
+    .add-btn {
+      width: 36px;
+      padding: 8px 0;
+      font-size: 16px;
+      font-weight: 700;
+      background: #FF9800;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .add-btn:active { background: #F57C00; }
     
     .form-row {
       display: grid;
@@ -478,7 +492,8 @@
       <div class="form-group" style="margin-bottom: 8px;">
         <label style="font-size: 12px;">日用品（10%）</label>
         <div class="category-input-row">
-          <input type="number" id="inputCat日用品" placeholder="0">
+          <input type="text" inputmode="numeric" id="inputCat日用品" placeholder="0">
+          <button type="button" class="add-btn" data-target="inputCat日用品">＋</button>
           <select id="taxType日用品">
             <option value="inclusive">税込</option>
             <option value="exclusive">税抜</option>
@@ -489,7 +504,8 @@
       <div class="form-group" style="margin-bottom: 8px;">
         <label style="font-size: 12px;">除外（8%）</label>
         <div class="category-input-row">
-          <input type="number" id="inputCat除外8" placeholder="0">
+          <input type="text" inputmode="numeric" id="inputCat除外8" placeholder="0">
+          <button type="button" class="add-btn" data-target="inputCat除外8">＋</button>
           <select id="taxType除外8">
             <option value="inclusive">税込</option>
             <option value="exclusive">税抜</option>
@@ -500,7 +516,8 @@
       <div class="form-group" style="margin-bottom: 8px;">
         <label style="font-size: 12px;">除外（10%）</label>
         <div class="category-input-row">
-          <input type="number" id="inputCat除外10" placeholder="0">
+          <input type="text" inputmode="numeric" id="inputCat除外10" placeholder="0">
+          <button type="button" class="add-btn" data-target="inputCat除外10">＋</button>
           <select id="taxType除外10">
             <option value="inclusive">税込</option>
             <option value="exclusive">税抜</option>
@@ -511,7 +528,8 @@
       <div class="form-group" style="margin-bottom: 8px;">
         <label style="font-size: 12px;">くりお（8%）</label>
         <div class="category-input-row">
-          <input type="number" id="inputCatくりお" placeholder="0">
+          <input type="text" inputmode="numeric" id="inputCatくりお" placeholder="0">
+          <button type="button" class="add-btn" data-target="inputCatくりお">＋</button>
           <select id="taxTypeくりお">
             <option value="inclusive">税込</option>
             <option value="exclusive">税抜</option>
@@ -631,6 +649,14 @@
       除外10: null
     };
     
+    // 足し算式を評価する（例: "300+200+150" → 650）
+    function evalAddExpr(str) {
+      if (!str) return 0;
+      const cleaned = str.replace(/[＋]/g, '+').replace(/[^\d+]/g, '');
+      if (!cleaned) return 0;
+      return cleaned.split('+').reduce((sum, n) => sum + (parseInt(n) || 0), 0);
+    }
+
     function loadSettings() {
       const url = localStorage.getItem(GAS_URL_KEY);
       const apiKey = localStorage.getItem(API_KEY_KEY);
@@ -1474,6 +1500,19 @@
         el.addEventListener('change', () => { updateTotals(); validateForm(); });
       }
     });
+
+    // ＋ボタン: 入力欄に「+」を追記
+    document.querySelectorAll('.add-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById(btn.dataset.target);
+        if (!input) return;
+        const val = input.value.replace(/[＋]/g, '+').trim();
+        if (val && !val.endsWith('+')) {
+          input.value = val + '+';
+        }
+        input.focus();
+      });
+    });
     
     function updateTotals() {
       const total = parseInt(document.getElementById('inputTotal').value) || 0;
@@ -1485,14 +1524,16 @@
 
       // 各カテゴリの詳細を更新（食費以外）
       for (const cat of ['日用品', '除外8', 'くりお', '除外10']) {
-        const amount = parseInt(document.getElementById('inputCat' + cat).value) || 0;
+        const rawValue = document.getElementById('inputCat' + cat).value;
+        const amount = evalAddExpr(rawValue);
         const detailEl = document.getElementById('detail' + cat);
-        
+
         if (amount > 0) {
           let detailHtml = '';
-          
-          // 計算式がある場合
-          const expr = categoryCalcExpr[cat];
+
+          // 計算式がある場合（入力に+が含まれるか、AIからの式がある場合）
+          const hasExpr = rawValue && rawValue.includes('+');
+          const expr = hasExpr ? rawValue.replace(/[＋]/g, '+') : categoryCalcExpr[cat];
           if (expr) {
             detailHtml += `<div class="calc-expr">計算: ${expr} = ${amount.toLocaleString()}</div>`;
           }
@@ -1684,7 +1725,7 @@
       let otherCatsTotal = 0;
 
       for (const cat of ['日用品', '除外8', 'くりお', '除外10']) {
-        const val = parseInt(document.getElementById('inputCat' + cat).value) || null;
+        const val = evalAddExpr(document.getElementById('inputCat' + cat).value) || null;
         if (val && taxRates[cat]) {
           const taxTypeEl = document.getElementById('taxType' + cat);
           const isExclusive = taxTypeEl && taxTypeEl.value === 'exclusive';
